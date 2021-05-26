@@ -7,13 +7,16 @@ class BZip2 {
 
   static int INITIAL_CRC = 0xffffffff;
 
-  static int updateCrc(int value, int crc) {
-    return ((crc << 8) ^ _BZ2_CRC32_TABLE[(crc >> 24) & 0xff ^ (value & 0xff)]) & 0xffffffff;
-  }
+  static int updateCrc(
+    int value,
+    int crc,
+  ) =>
+      ((crc << 8) ^ _BZ2_CRC32_TABLE[(crc >> 24) & 0xff ^ (value & 0xff)]) & 0xffffffff;
 
-  static int finalizeCrc(int crc) {
-    return crc ^ 0xffffffff;
-  }
+  static int finalizeCrc(
+    int crc,
+  ) =>
+      crc ^ 0xffffffff;
 
   static const List<int> BZH_SIGNATURE = [0x42, 0x5a, 0x68];
 

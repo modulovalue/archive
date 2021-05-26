@@ -11,12 +11,16 @@ class _ZLibDecoder implements ZLibDecoderBase {
   const _ZLibDecoder();
 
   @override
-  Uint8List decodeBytes(List<int> data, {bool verify = false}) {
-    return ZLibCodec().decoder.convert(data) as Uint8List;
-  }
+  Uint8List decodeBytes(
+    List<int> data, {
+    bool verify = false,
+  }) =>
+      ZLibCodec().decoder.convert(data) as Uint8List;
 
   @override
-  Uint8List decodeBuffer(InputStream input, {bool verify = false}) {
-    return decodeBytes(input.toUint8List(), verify: verify);
-  }
+  Uint8List decodeBuffer(
+    InputStream input, {
+    bool verify = false,
+  }) =>
+      decodeBytes(input.toUint8List(), verify: verify);
 }

@@ -10,9 +10,8 @@ void main() {
   final img = querySelectorAll('img')[0] as ImageElement;
   final path = img.src!.substring(0, img.src!.lastIndexOf('/'));
   img.remove();
-
   // Use an http request to get the image file from disk.
-  var req = HttpRequest();
+  final req = HttpRequest();
   req.open('GET', path + '/readme.zip');
   req.responseType = 'arraybuffer';
   req.onLoadEnd.listen((e) {

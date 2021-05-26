@@ -28,7 +28,7 @@ void main() {
   final fp = File('test.tbz');
   fp.writeAsBytesSync(tar_bz2);
   // Zip a directory to out.zip using the zipDirectory convenience method
-  var encoder = ZipFileEncoder();
+  final encoder = ZipFileEncoder();
   encoder.zipDirectory(Directory('out'), filename: 'out.zip');
   // Manually create a zip of a directory and individual files.
   encoder.create('out2.zip');

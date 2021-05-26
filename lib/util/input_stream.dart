@@ -60,14 +60,13 @@ class InputStream extends InputStreamBase {
   int byteOrder;
 
   /// Create a InputStream for reading from a List<int>
-  InputStream(dynamic data, {this.byteOrder = LITTLE_ENDIAN, int start = 0, int? length})
+  InputStream(dynamic data, {this.byteOrder = LITTLE_ENDIAN, this.start = 0, int? length})
       : buffer = data is TypedData
             ? Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes)
             : data is List<int>
                 ? data
                 : List<int>.from(data as Iterable<dynamic>),
-        offset = start,
-        start = start {
+        offset = start {
     _length = length ?? buffer.length;
   }
 
@@ -93,9 +92,7 @@ class InputStream extends InputStreamBase {
 
   /// Reset to the beginning of the stream.
   @override
-  void reset() {
-    offset = start;
-  }
+  void reset() => offset = start;
 
   /// Rewind the read head of the stream by the given number of bytes.
   @override
@@ -118,13 +115,13 @@ class InputStream extends InputStreamBase {
     if (position == null) {
       position = offset;
     } else {
+      // ignore: parameter_assignments
       position += start;
     }
-
     if (length == null || length < 0) {
+      // ignore: parameter_assignments
       length = _length - (position - start);
     }
-
     return InputStream(buffer, byteOrder: byteOrder, start: position, length: length);
   }
 
@@ -133,7 +130,8 @@ class InputStream extends InputStreamBase {
   /// returned is relative to the start of the buffer, or -1 if the [value]
   /// was not found.
   int indexOf(int value, [int offset = 0]) {
-    for (var i = this.offset + offset, end = this.offset + length; i < end; ++i) {
+    final end = this.offset + length;
+    for (var i = this.offset + offset; i < end; ++i) {
       if (buffer[i] == value) {
         return i - start;
       }
@@ -150,15 +148,11 @@ class InputStream extends InputStreamBase {
 
   /// Move the read position by [count] bytes.
   @override
-  void skip(int count) {
-    offset += count;
-  }
+  void skip(int count) => offset += count;
 
   /// Read a single byte.
   @override
-  int readByte() {
-    return buffer[offset++];
-  }
+  int readByte() => buffer[offset++];
 
   /// Read [count] bytes from the stream.
   @override
@@ -176,21 +170,22 @@ class InputStream extends InputStreamBase {
       final codes = <int>[];
       if (isEOS) {
         return '';
-      }
-      while (!isEOS) {
-        final c = readByte();
-        if (c == 0) {
-          return utf8 ? Utf8Decoder().convert(codes) : String.fromCharCodes(codes);
+      } else {
+        while (!isEOS) {
+          final c = readByte();
+          if (c == 0) {
+            return utf8 ? const Utf8Decoder().convert(codes) : String.fromCharCodes(codes);
+          }
+          codes.add(c);
         }
-        codes.add(c);
+        throw const ArchiveException('EOF reached without finding string terminator');
       }
-      throw ArchiveException('EOF reached without finding string terminator');
+    } else {
+      final s = readBytes(size);
+      final bytes = s.toUint8List();
+      final str = utf8 ? const Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
+      return str;
     }
-
-    final s = readBytes(size);
-    final bytes = s.toUint8List();
-    final str = utf8 ? Utf8Decoder().convert(bytes) : String.fromCharCodes(bytes);
-    return str;
   }
 
   /// Read a 16-bit word from the stream.
@@ -200,8 +195,9 @@ class InputStream extends InputStreamBase {
     final b2 = buffer[offset++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
       return (b1 << 8) | b2;
+    } else {
+      return (b2 << 8) | b1;
     }
-    return (b2 << 8) | b1;
   }
 
   /// Read a 24-bit word from the stream.
@@ -212,8 +208,9 @@ class InputStream extends InputStreamBase {
     final b3 = buffer[offset++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
       return b3 | (b2 << 8) | (b1 << 16);
+    } else {
+      return b1 | (b2 << 8) | (b3 << 16);
     }
-    return b1 | (b2 << 8) | (b3 << 16);
   }
 
   /// Read a 32-bit word from the stream.
@@ -225,8 +222,9 @@ class InputStream extends InputStreamBase {
     final b4 = buffer[offset++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
       return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
+    } else {
+      return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
     }
-    return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
 
   /// Read a 64-bit word form the stream.
@@ -242,8 +240,9 @@ class InputStream extends InputStreamBase {
     final b8 = buffer[offset++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
       return (b1 << 56) | (b2 << 48) | (b3 << 40) | (b4 << 32) | (b5 << 24) | (b6 << 16) | (b7 << 8) | b8;
+    } else {
+      return (b8 << 56) | (b7 << 48) | (b6 << 40) | (b5 << 32) | (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
     }
-    return (b8 << 56) | (b7 << 48) | (b6 << 40) | (b5 << 32) | (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
 
   @override
@@ -256,12 +255,13 @@ class InputStream extends InputStreamBase {
       }
       final bytes = Uint8List.view(b.buffer, b.offsetInBytes + offset, len);
       return bytes;
+    } else {
+      var end = offset + len;
+      if (end > buffer.length) {
+        end = buffer.length;
+      }
+      return Uint8List.fromList(buffer.sublist(offset, end));
     }
-    var end = offset + len;
-    if (end > buffer.length) {
-      end = buffer.length;
-    }
-    return Uint8List.fromList(buffer.sublist(offset, end));
   }
 
   late int _length;

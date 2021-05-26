@@ -23,23 +23,18 @@ abstract class OutputStreamBase {
 }
 
 class OutputStream extends OutputStreamBase {
-  int _length;
+  @override
+  int length;
   final int byteOrder;
 
   /// Create a byte buffer for writing.
   OutputStream({int? size = _BLOCK_SIZE, this.byteOrder = LITTLE_ENDIAN})
       : _buffer = Uint8List(size ?? _BLOCK_SIZE),
-        _length = 0;
+        length = 0;
 
-  @override
-  int get length => _length;
-
-  set length(int l) => _length = l;
 
   /// Get the resulting bytes from the buffer.
-  Uint8List getBytes() {
-    return Uint8List.view(_buffer.buffer, 0, length);
-  }
+  Uint8List getBytes() => Uint8List.view(_buffer.buffer, 0, length);
 
   /// Clear the buffer.
   void clear() {
@@ -48,9 +43,7 @@ class OutputStream extends OutputStreamBase {
   }
 
   /// Reset the buffer.
-  void reset() {
-    length = 0;
-  }
+  void reset() => length = 0;
 
   /// Write a byte to the end of the buffer.
   @override
@@ -65,7 +58,6 @@ class OutputStream extends OutputStreamBase {
   @override
   void writeBytes(List<int> bytes, [int? len]) {
     len ??= bytes.length;
-
     while (length + len > _buffer.length) {
       _expandBuffer((length + len) - _buffer.length);
     }
@@ -78,11 +70,10 @@ class OutputStream extends OutputStreamBase {
     while (length + stream.length > _buffer.length) {
       _expandBuffer((length + stream.length) - _buffer.length);
     }
-
     if (stream is InputStream) {
       _buffer.setRange(length, length + stream.length, stream.buffer, stream.offset);
     } else {
-      var bytes = stream.toUint8List();
+      final bytes = stream.toUint8List();
       _buffer.setRange(length, length + stream.length, bytes, 0);
     }
     length += stream.length;
@@ -93,11 +84,11 @@ class OutputStream extends OutputStreamBase {
   void writeUint16(int value) {
     if (byteOrder == BIG_ENDIAN) {
       writeByte((value >> 8) & 0xff);
-      writeByte((value) & 0xff);
-      return;
+      writeByte(value & 0xff);
+    } else {
+      writeByte(value & 0xff);
+      writeByte((value >> 8) & 0xff);
     }
-    writeByte((value) & 0xff);
-    writeByte((value >> 8) & 0xff);
   }
 
   /// Write a 32-bit word to the end of the buffer.
@@ -107,13 +98,13 @@ class OutputStream extends OutputStreamBase {
       writeByte((value >> 24) & 0xff);
       writeByte((value >> 16) & 0xff);
       writeByte((value >> 8) & 0xff);
-      writeByte((value) & 0xff);
-      return;
+      writeByte(value & 0xff);
+    } else {
+      writeByte(value & 0xff);
+      writeByte((value >> 8) & 0xff);
+      writeByte((value >> 16) & 0xff);
+      writeByte((value >> 24) & 0xff);
     }
-    writeByte((value) & 0xff);
-    writeByte((value >> 8) & 0xff);
-    writeByte((value >> 16) & 0xff);
-    writeByte((value >> 24) & 0xff);
   }
 
   /// Return the subset of the buffer in the range [start:end].
@@ -123,15 +114,15 @@ class OutputStream extends OutputStreamBase {
   /// This is equivalent to the python list range operator.
   List<int> subset(int start, [int? end]) {
     if (start < 0) {
-      start = (length) + start;
+      // ignore: parameter_assignments
+      start = length + start;
     }
-
     if (end == null) {
       end = length;
     } else if (end < 0) {
+      // ignore: parameter_assignments
       end = length + end;
     }
-
     return Uint8List.view(_buffer.buffer, start, end - start);
   }
 

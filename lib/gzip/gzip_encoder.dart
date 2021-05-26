@@ -29,8 +29,7 @@ class GZipEncoder {
   static const int OS_UNKNOWN = 255;
 
   List<int>? encode(dynamic data, {int? level, dynamic output}) {
-    dynamic output_stream = output ?? OutputStream();
-
+    final dynamic output_stream = output ?? OutputStream();
     // The GZip format has the following structure:
     // Offset   Length   Contents
     // 0      2 bytes  magic header  0x1f, 0x8b (\037 \213)
@@ -71,35 +70,35 @@ class GZipEncoder {
     //          bytes  compressed data
     //        4 bytes  crc32
     //        4 bytes  uncompressed input size modulo 2^32
-
+    // ignore: avoid_dynamic_calls
     output_stream.writeUint16(SIGNATURE);
+    // ignore: avoid_dynamic_calls
     output_stream.writeByte(DEFLATE);
-
-    var flags = 0;
-    var fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    var extraFlags = 0;
-    var osType = OS_UNKNOWN;
-
+    const flags = 0;
+    final fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    const extraFlags = 0;
+    const osType = OS_UNKNOWN;
+    // ignore: avoid_dynamic_calls
     output_stream.writeByte(flags);
+    // ignore: avoid_dynamic_calls
     output_stream.writeUint32(fileModTime);
+    // ignore: avoid_dynamic_calls
     output_stream.writeByte(extraFlags);
+    // ignore: avoid_dynamic_calls
     output_stream.writeByte(osType);
-
     Deflate deflate;
     if (data is List<int>) {
       deflate = Deflate(data, level: level, output: output_stream);
     } else {
       deflate = Deflate.buffer(data as InputStreamBase, level: level, output: output_stream);
     }
-
     if (!(output_stream is OutputStream)) {
       deflate.finish();
     }
-
+    // ignore: avoid_dynamic_calls
     output_stream.writeUint32(deflate.crc32);
-
+    // ignore: avoid_dynamic_calls
     output_stream.writeUint32(data.length);
-
     if (output_stream is OutputStream) {
       return output_stream.getBytes();
     } else {

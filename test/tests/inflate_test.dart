@@ -10,7 +10,6 @@ void main() {
   for (var i = 0; i < buffer.length; ++i) {
     buffer[i] = i % 256;
   }
-
   test('stream/NO_COMPRESSION', () {
     // compress the buffer (assumption: deflate works correctly).
     final deflated = Deflate(buffer, level: Deflate.NO_COMPRESSION).getBytes();
@@ -23,17 +22,15 @@ void main() {
     var bi = 0;
     // The section of the input buffer we're currently streaming.
     var streamOffset = 0;
-    final streamSize = 1049;
+    const streamSize = 1049;
     // Continue while we haven't streamed all of the data yet.
     while (streamOffset < deflatedBytes.length) {
       // Create a view of the input data for the bytes we're currently
       // streaming.
       final streamBytes = Uint8List.view(deflatedBytes.buffer, streamOffset, streamSize);
       streamOffset += streamBytes.length;
-
       // Set the bytes as the stream input.
       inflate.streamInput(streamBytes);
-
       // Inflate all of blocks available from the stream input.
       var inflated = inflate.inflateNext();
       while (inflated != null) {
@@ -145,7 +142,6 @@ List<int> gitInflateInput = const <int>[
   142,
   79, 203, 204, 73, 141, 47, 73, 45, 46, 209
 ];
-
 List<int> gitExpectedOutput = const <int>[
   116, 114, 101, 101, 32, 56, 53, 57, 51, 51, 56, 57, //
   50, 99, 100, 49, 49, 52, 97, 98, 99, 48, 99, 50, 97, 52, 98, 55, 98, 51, 97,

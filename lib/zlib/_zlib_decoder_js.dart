@@ -50,11 +50,11 @@ class _ZLibDecoder implements ZLibDecoderBase {
       final flevel = (flg & 64) >> 6; // ignore: unused_local_variable
       // FCHECK is set such that (cmf * 256 + flag) must be a multiple of 31.
       if (((cmf << 8) + flg) % 31 != 0) {
-        throw ArchiveException('Invalid FCHECK');
+        throw const ArchiveException('Invalid FCHECK');
       } else {
         if (fdict != 0) {
           /*dictid =*/ input.readUint32();
-          throw ArchiveException('FDICT Encoding not currently supported');
+          throw const ArchiveException('FDICT Encoding not currently supported');
         } else {
           // Inflate
           final buffer = Inflate.buffer(input).getBytes();
@@ -63,7 +63,7 @@ class _ZLibDecoder implements ZLibDecoderBase {
             // verify adler-32
             final calculatedAdler32 = getAdler32(buffer);
             if (adler32 != calculatedAdler32) {
-              throw ArchiveException('Invalid adler-32 checksum');
+              throw const ArchiveException('Invalid adler-32 checksum');
             } else {
               return buffer;
             }

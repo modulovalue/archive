@@ -11,35 +11,29 @@ class Bz2BitReader {
   int readBits(int numBits) {
     if (numBits == 0) {
       return 0;
-    }
-
-    if (_bitPos == 0) {
-      _bitPos = 8;
-      _bitBuffer = input.readByte();
-    }
-
-    var value = 0;
-
-    while (numBits > _bitPos) {
-      value = (value << _bitPos) + (_bitBuffer & _BIT_MASK[_bitPos]);
-      // ignore: parameter_assignments
-      numBits -= _bitPos;
-      _bitPos = 8;
-      _bitBuffer = input.readByte();
-    }
-
-    if (numBits > 0) {
+    } else {
       if (_bitPos == 0) {
         _bitPos = 8;
         _bitBuffer = input.readByte();
       }
-
-      value = (value << numBits) + (_bitBuffer >> (_bitPos - numBits) & _BIT_MASK[numBits]);
-
-      _bitPos -= numBits;
+      var value = 0;
+      while (numBits > _bitPos) {
+        value = (value << _bitPos) + (_bitBuffer & _BIT_MASK[_bitPos]);
+        // ignore: parameter_assignments
+        numBits -= _bitPos;
+        _bitPos = 8;
+        _bitBuffer = input.readByte();
+      }
+      if (numBits > 0) {
+        if (_bitPos == 0) {
+          _bitPos = 8;
+          _bitBuffer = input.readByte();
+        }
+        value = (value << numBits) + (_bitBuffer >> (_bitPos - numBits) & _BIT_MASK[numBits]);
+        _bitPos -= numBits;
+      }
+      return value;
     }
-
-    return value;
   }
 
   int _bitBuffer = 0;

@@ -5,21 +5,31 @@ int CRC32(int crc, int b) => _CRC32_TABLE[(crc ^ b) & 0xff] ^ (crc >> 8);
 /// already computed crc by specifying the previous [crc] value.
 int getCrc32(List<int> array, [int crc = 0]) {
   var len = array.length;
+  // ignore: parameter_assignments
   crc = crc ^ 0xffffffff;
   var ip = 0;
   while (len >= 8) {
+    // ignore: parameter_assignments
     crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    // ignore: parameter_assignments
     crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    // ignore: parameter_assignments
     crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    // ignore: parameter_assignments
     crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    // ignore: parameter_assignments
     crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    // ignore: parameter_assignments
     crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    // ignore: parameter_assignments
     crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
+    // ignore: parameter_assignments
     crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
     len -= 8;
   }
   if (len > 0) {
     do {
+      // ignore: parameter_assignments
       crc = _CRC32_TABLE[(crc ^ array[ip++]) & 0xff] ^ (crc >> 8);
     } while (--len > 0);
   }

@@ -30,9 +30,9 @@ zip archive
 format.
 ''';
 
-void ListDir(List files, io.Directory dir) {
-  var fileOrDirs = dir.listSync(recursive: true);
-  for (var f in fileOrDirs) {
+void ListDir(List<io.FileSystemEntity> files, io.Directory dir) {
+  final fileOrDirs = dir.listSync(recursive: true);
+  for (final f in fileOrDirs) {
     if (f is io.File) {
       // Ignore paxHeader files, which 7zip write out since it doesn't properly
       // handle POSIX tar files.

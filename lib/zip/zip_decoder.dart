@@ -9,11 +9,18 @@ import 'zip_file.dart';
 class ZipDecoder {
   late ZipDirectory directory;
 
-  Archive decodeBytes(List<int> data, {bool verify = false, String? password}) {
-    return decodeBuffer(InputStream(data), verify: verify, password: password);
-  }
+  Archive decodeBytes(
+    List<int> data, {
+    bool verify = false,
+    String? password,
+  }) =>
+      decodeBuffer(InputStream(data), verify: verify, password: password);
 
-  Archive decodeBuffer(InputStream input, {bool verify = false, String? password}) {
+  Archive decodeBuffer(
+    InputStream input, {
+    bool verify = false,
+    String? password,
+  }) {
     directory = ZipDirectory.read(input, password: password);
     final archive = Archive();
     for (final zfh in directory.fileHeaders) {
@@ -39,14 +46,11 @@ class ZipDecoder {
       } else {
         file.isFile = !file.name.endsWith('/');
       }
-
       file.crc32 = zf.crc32;
       file.compress = compress;
       file.lastModTime = zf.lastModFileDate << 16 | zf.lastModFileTime;
-
       archive.addFile(file);
     }
-
     return archive;
   }
 }

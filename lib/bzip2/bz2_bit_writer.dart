@@ -13,56 +13,46 @@ class Bz2BitWriter {
     }
   }
 
-  void writeUint16(int value) {
-    writeBits(16, value);
-  }
+  void writeUint16(int value) => writeBits(16, value);
 
-  void writeUint24(int value) {
-    writeBits(24, value);
-  }
+  void writeUint24(int value) => writeBits(24, value);
 
-  void writeUint32(int value) {
-    writeBits(32, value);
-  }
+  void writeUint32(int value) => writeBits(32, value);
 
   void writeBits(int numBits, int value) {
     // TODO optimize
     if (_bitPos == 8 && numBits == 8) {
       output.writeByte(value & 0xff);
-      return;
-    }
-
-    if (_bitPos == 8 && numBits == 16) {
-      output.writeByte((value >> 8) & 0xff);
-      output.writeByte(value & 0xff);
-      return;
-    }
-
-    if (_bitPos == 8 && numBits == 24) {
-      output.writeByte((value >> 16) & 0xff);
-      output.writeByte((value >> 8) & 0xff);
-      output.writeByte(value & 0xff);
-      return;
-    }
-
-    if (_bitPos == 8 && numBits == 32) {
-      output.writeByte((value >> 24) & 0xff);
-      output.writeByte((value >> 16) & 0xff);
-      output.writeByte((value >> 8) & 0xff);
-      output.writeByte(value & 0xff);
-      return;
-    }
-
-    while (numBits > 0) {
-      // ignore: parameter_assignments
-      numBits--;
-      final b = (value >> numBits) & 0x1;
-      _bitBuffer = (_bitBuffer << 1) | b;
-      _bitPos--;
-      if (_bitPos == 0) {
-        output.writeByte(_bitBuffer);
-        _bitPos = 8;
-        _bitBuffer = 0;
+    } else {
+      if (_bitPos == 8 && numBits == 16) {
+        output.writeByte((value >> 8) & 0xff);
+        output.writeByte(value & 0xff);
+      } else {
+        if (_bitPos == 8 && numBits == 24) {
+          output.writeByte((value >> 16) & 0xff);
+          output.writeByte((value >> 8) & 0xff);
+          output.writeByte(value & 0xff);
+        } else {
+          if (_bitPos == 8 && numBits == 32) {
+            output.writeByte((value >> 24) & 0xff);
+            output.writeByte((value >> 16) & 0xff);
+            output.writeByte((value >> 8) & 0xff);
+            output.writeByte(value & 0xff);
+          } else {
+            while (numBits > 0) {
+              // ignore: parameter_assignments
+              numBits--;
+              final b = (value >> numBits) & 0x1;
+              _bitBuffer = (_bitBuffer << 1) | b;
+              _bitPos--;
+              if (_bitPos == 0) {
+                output.writeByte(_bitBuffer);
+                _bitPos = 8;
+                _bitBuffer = 0;
+              }
+            }
+          }
+        }
       }
     }
   }

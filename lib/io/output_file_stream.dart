@@ -13,7 +13,7 @@ class OutputFileStream extends OutputStreamBase {
   late RandomAccessFile _fp;
 
   OutputFileStream(this.path, {this.byteOrder = LITTLE_ENDIAN}) : _length = 0 {
-    var file = File(path);
+    final file = File(path);
     file.createSync(recursive: true);
     _fp = file.openSync(mode: FileMode.write);
   }
@@ -21,9 +21,7 @@ class OutputFileStream extends OutputStreamBase {
   @override
   int get length => _length;
 
-  void close() {
-    _fp.closeSync();
-  }
+  void close() => _fp.closeSync();
 
   /// Write a byte to the end of the buffer.
   @override
@@ -35,6 +33,7 @@ class OutputFileStream extends OutputStreamBase {
   /// Write a set of bytes to the end of the buffer.
   @override
   void writeBytes(dynamic bytes, [int? len]) {
+    // ignore: avoid_dynamic_calls
     len ??= bytes.length as int;
     if (bytes is InputFileStream) {
       while (!bytes.isEOS) {
@@ -54,7 +53,7 @@ class OutputFileStream extends OutputStreamBase {
       _fp.writeFromSync(stream.buffer, stream.offset, stream.length);
       _length += stream.length;
     } else {
-      var bytes = stream.toUint8List();
+      final bytes = stream.toUint8List();
       _fp.writeFromSync(bytes);
       _length += bytes.length;
     }
@@ -65,11 +64,11 @@ class OutputFileStream extends OutputStreamBase {
   void writeUint16(int value) {
     if (byteOrder == BIG_ENDIAN) {
       writeByte((value >> 8) & 0xff);
-      writeByte((value) & 0xff);
-      return;
+      writeByte(value & 0xff);
+    } else {
+      writeByte(value & 0xff);
+      writeByte((value >> 8) & 0xff);
     }
-    writeByte((value) & 0xff);
-    writeByte((value >> 8) & 0xff);
   }
 
   /// Write a 32-bit word to the end of the buffer.
@@ -79,27 +78,29 @@ class OutputFileStream extends OutputStreamBase {
       writeByte((value >> 24) & 0xff);
       writeByte((value >> 16) & 0xff);
       writeByte((value >> 8) & 0xff);
-      writeByte((value) & 0xff);
-      return;
+      writeByte(value & 0xff);
+    } else {
+      writeByte(value & 0xff);
+      writeByte((value >> 8) & 0xff);
+      writeByte((value >> 16) & 0xff);
+      writeByte((value >> 24) & 0xff);
     }
-    writeByte((value) & 0xff);
-    writeByte((value >> 8) & 0xff);
-    writeByte((value >> 16) & 0xff);
-    writeByte((value >> 24) & 0xff);
   }
 
   List<int> subset(int start, [int? end]) {
     final pos = _fp.positionSync();
     if (start < 0) {
+      // ignore: parameter_assignments
       start = pos + start;
     }
     var length = 0;
     if (end == null) {
       end = pos;
     } else if (end < 0) {
+      // ignore: parameter_assignments
       end = pos + end;
     }
-    length = (end - start);
+    length = end - start;
     _fp.setPositionSync(start);
     final buffer = Uint8List(length);
     _fp.readIntoSync(buffer);

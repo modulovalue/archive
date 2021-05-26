@@ -25,23 +25,19 @@ class GZipDecoder {
 
   List<int> decodeBuffer(InputStreamBase input, {bool verify = false}) {
     _readHeader(input);
-
     // Inflate
     final buffer = Inflate.buffer(input).getBytes();
-
     if (verify) {
       final crc = input.readUint32();
       final computedCrc = getCrc32(buffer);
       if (crc != computedCrc) {
         throw const ArchiveException('Invalid CRC checksum');
       }
-
       final size = input.readUint32();
       if (size != buffer.length) {
         throw const ArchiveException('Size of decompressed file not correct');
       }
     }
-
     return buffer;
   }
 
@@ -86,17 +82,14 @@ class GZipDecoder {
     //          bytes  compressed data
     //        4 bytes  crc32
     //        4 bytes  uncompressed input size modulo 2^32
-
     final signature = input.readUint16();
     if (signature != SIGNATURE) {
       throw const ArchiveException('Invalid GZip Signature');
     }
-
     final compressionMethod = input.readByte();
     if (compressionMethod != DEFLATE) {
       throw const ArchiveException('Invalid GZip Compression Methos');
     }
-
     final flags = input.readByte();
     /*int fileModTime =*/
     input.readUint32();
@@ -104,20 +97,16 @@ class GZipDecoder {
     input.readByte();
     /*int osType =*/
     input.readByte();
-
     if (flags & FLAG_EXTRA != 0) {
       final t = input.readUint16();
       input.readBytes(t);
     }
-
     if (flags & FLAG_NAME != 0) {
       input.readString();
     }
-
     if (flags & FLAG_COMMENT != 0) {
       input.readString();
     }
-
     // just throw away for now
     if (flags & FLAG_HCRC != 0) {
       input.readUint16();

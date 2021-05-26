@@ -153,7 +153,6 @@ final tarTests = [
 void main() {
   final tar = TarDecoder();
   final tarEncoder = TarEncoder();
-
   test('tar invalid archive', () {
     try {
       TarDecoder().decodeBytes([1, 2, 3]);
@@ -163,16 +162,13 @@ void main() {
       // pass
     }
   });
-
   test('tar file', () {
     TarEncoder().encode(Archive()..addFile(ArchiveFile('file.txt', 1, [100])));
   });
-
   test('long file name', () {
     final file = File(p.join(testDirPath, 'res/tar/x.tar'));
     final bytes = file.readAsBytesSync();
     final archive = tar.decodeBytes(bytes, verify: true);
-
     expect(archive.numberOfFiles(), equals(1));
     var x = '';
     for (var i = 0; i < 150; ++i) {
@@ -182,7 +178,6 @@ void main() {
     x += '.txt';
     expect(archive.files[0].name, equals(x));
   });
-
   test('symlink', () {
     final file = File(p.join(testDirPath, 'res/tar/symlink_tar.tar'));
     final List<int> bytes = file.readAsBytesSync();
@@ -191,18 +186,14 @@ void main() {
     expect(archive.files[1].isSymbolicLink, equals(true));
     expect(archive.files[1].nameOfLinkedFile, equals('b/b.txt'));
   });
-
   test('decode test2.tar', () {
     final file = File(p.join(testDirPath, 'res/test2.tar'));
     final List<int> bytes = file.readAsBytesSync();
     final archive = tar.decodeBytes(bytes, verify: true);
-
     final expected_files = <File>[];
     ListDir(expected_files, Directory(p.join(testDirPath, 'res/test2')));
-
     expect(archive.length, equals(4));
   });
-
   test('decode test2.tar.gz', () {
     final file = File(p.join(testDirPath, 'res/test2.tar.gz'));
     List<int> bytes = file.readAsBytesSync();
@@ -212,49 +203,38 @@ void main() {
     ListDir(expected_files, Directory(p.join(testDirPath, 'res/test2')));
     expect(archive.length, equals(4));
   });
-
   test('decode/encode', () {
     final a_bytes = a_txt.codeUnits;
-
     final b = File(p.join(testDirPath, 'res/cat.jpg'));
     final List<int> b_bytes = b.readAsBytesSync();
-
     final file = File(p.join(testDirPath, 'res/test.tar'));
     final List<int> bytes = file.readAsBytesSync();
-
     final archive = tar.decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(2));
-
     var t_file = archive.fileName(0);
     expect(t_file, equals('a.txt'));
     var t_bytes = archive.fileData(0);
     compare_bytes(t_bytes, a_bytes);
-
     t_file = archive.fileName(1);
     expect(t_file, equals('cat.jpg'));
     t_bytes = archive.fileData(1);
     compare_bytes(t_bytes, b_bytes);
-
     final encoded = tarEncoder.encode(archive);
     final out = File(p.join(testDirPath, 'out/test.tar'));
     out.createSync(recursive: true);
     out.writeAsBytesSync(encoded);
-
     // Test round-trip
     final archive2 = tar.decodeBytes(encoded, verify: true);
     expect(archive2.numberOfFiles(), equals(2));
-
     t_file = archive2.fileName(0);
     expect(t_file, equals('a.txt'));
     t_bytes = archive2.fileData(0);
     compare_bytes(t_bytes, a_bytes);
-
     t_file = archive2.fileName(1);
     expect(t_file, equals('cat.jpg'));
     t_bytes = archive2.fileData(1);
     compare_bytes(t_bytes, b_bytes);
   });
-
   for (final Map<String, dynamic> t in tarTests) {
     test('untar ${t['file']}', () {
       final file = File(p.join(testDirPath, t['file'] as String));
@@ -267,7 +247,6 @@ void main() {
         final file = tar.files[i];
         // ignore: avoid_dynamic_calls
         final hdr = t['headers'][i] as Map<String, dynamic>;
-
         if (hdr.containsKey('Name')) {
           expect(file.filename, equals(hdr['Name']));
         }

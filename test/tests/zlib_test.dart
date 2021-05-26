@@ -7,7 +7,6 @@ void main() {
   for (var i = 0; i < buffer.length; ++i) {
     buffer[i] = i % 256;
   }
-
   test('encode/decode', () {
     final compressed = const ZLibEncoder().encode(buffer);
     final decompressed = const ZLibDecoder().decodeBytes(compressed, verify: true);

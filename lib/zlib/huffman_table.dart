@@ -8,7 +8,6 @@ class HuffmanTable {
 
   HuffmanTable(List<int> lengths) {
     final listSize = lengths.length;
-
     for (var i = 0; i < listSize; ++i) {
       if (lengths[i] > maxCodeLength) {
         maxCodeLength = lengths[i];
@@ -17,10 +16,8 @@ class HuffmanTable {
         minCodeLength = lengths[i];
       }
     }
-
     final size = 1 << maxCodeLength;
     table = Uint32List(size);
-
     for (var bitLength = 1, code = 0, skip = 2; bitLength <= maxCodeLength;) {
       for (var i = 0; i < listSize; ++i) {
         if (lengths[i] == bitLength) {
@@ -30,15 +27,12 @@ class HuffmanTable {
             reversed = (reversed << 1) | (rtemp & 1);
             rtemp >>= 1;
           }
-
           for (var j = reversed; j < size; j += skip) {
             table[j] = (bitLength << 16) | i;
           }
-
           ++code;
         }
       }
-
       ++bitLength;
       code <<= 1;
       skip <<= 1;

@@ -70,7 +70,6 @@ class TarFile {
 
   TarFile.read(InputStreamBase input, {bool storeData = true}) {
     final header = input.readBytes(512);
-
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
     // ASCII. Each numeric field of width w contains w minus 1 digits, and a
@@ -84,7 +83,6 @@ class TarFile {
     checksum = _parseInt(header, 8);
     typeFlag = _parseString(header, 1);
     nameOfLinkedFile = _parseString(header, 100);
-
     ustarIndicator = _parseString(header, 6);
     if (ustarIndicator == 'ustar') {
       ustarVersion = _parseString(header, 2);
@@ -93,13 +91,11 @@ class TarFile {
       deviceMajorNumber = _parseInt(header, 8);
       deviceMinorNumber = _parseInt(header, 8);
     }
-
     if (storeData || filename == '././@LongLink') {
       _rawContent = input.readBytes(fileSize);
     } else {
       input.skip(fileSize);
     }
-
     if (isFile && fileSize > 0) {
       final remainder = fileSize % 512;
       var skiplen = 0;
@@ -134,7 +130,6 @@ class TarFile {
 
   void write(dynamic output) {
     fileSize = size;
-
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
     // ASCII. Each numeric field of width w contains w minus 1 digits, and a null.
@@ -147,13 +142,10 @@ class TarFile {
     _writeInt(header, lastModTime, 12);
     _writeString(header, '        ', 8); // checksum placeholder
     _writeString(header, typeFlag, 1);
-
     final remainder = 512 - header.length;
     var nulls = Uint8List(remainder); // typed arrays default to 0.
     header.writeBytes(nulls);
-
     final headerBytes = header.getBytes();
-
     // The checksum is calculated by taking the sum of the unsigned byte values
     // of the header record with the eight checksum bytes taken to be ascii
     // spaces (decimal value 32). It is stored as a six digit octal number
@@ -162,22 +154,18 @@ class TarFile {
     for (final b in headerBytes) {
       sum += b;
     }
-
     var sum_str = sum.toRadixString(8); // octal basis
     while (sum_str.length < 6) {
       sum_str = '0' + sum_str;
     }
-
     var checksum_index = 148; // checksum is at 148th byte
     for (var i = 0; i < 6; ++i) {
       headerBytes[checksum_index++] = sum_str.codeUnits[i];
     }
     headerBytes[154] = 0;
     headerBytes[155] = 32;
-
     // ignore: avoid_dynamic_calls
     output.writeBytes(header.getBytes());
-
     if (_content != null) {
       // ignore: avoid_dynamic_calls
       output.writeBytes(_content);
@@ -185,7 +173,6 @@ class TarFile {
       // ignore: avoid_dynamic_calls
       output.writeInputStream(_rawContent);
     }
-
     if (isFile && fileSize > 0) {
       // Pad to 512-byte boundary
       final remainder = fileSize % 512;

@@ -51,16 +51,13 @@ class TarFileEncoder {
   }
 
   void addDirectory(Directory dir) {
-    List files = dir.listSync(recursive: true);
-
-    for (var fe in files) {
-      if (fe is! File) {
-        continue;
+    final files = dir.listSync(recursive: true);
+    for (final fe in files) {
+      if (fe is File) {
+        final f = fe;
+        final rel_path = path.relative(f.path, from: dir.path);
+        addFile(f, rel_path);
       }
-
-      final f = fe;
-      final rel_path = path.relative(f.path, from: dir.path);
-      addFile(f, rel_path);
     }
   }
 

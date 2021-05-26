@@ -206,32 +206,28 @@ final zipTests = <dynamic>[
     ],
   },
 ];
-
 void main() {
   test('zip empty', () async {
     ZipDecoder().decodeBytes(ZipEncoder().encode(Archive())!);
   });
-
   test('zip isFile', () async {
     final file = File(p.join(testDirPath, 'res/zip/android-javadoc.zip'));
     final bytes = file.readAsBytesSync();
     final archive = ZipDecoder().decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(102));
-    for (var file in archive.files) {
+    for (final file in archive.files) {
       //print('@ ${file.name} ${file.isFile} ${!file.name.endsWith('/')}');
       expect(file.isFile, equals(!file.name.endsWith('/')));
     }
   });
-
   test('file decode utf file', () {
     final bytes = File(p.join(testDirPath, 'res/zip/utf.zip')).readAsBytesSync();
     final archive = ZipDecoder().decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(5));
   });
-
   test('file encoding zip file', () {
-    final origialFileName = 'fileöäüÖÄÜß.txt';
-    final bytes = Utf8Codec().encode('test');
+    const origialFileName = 'fileöäüÖÄÜß.txt';
+    final bytes = const Utf8Codec().encode('test');
     final archiveFile = ArchiveFile(origialFileName, bytes.length, bytes);
     final archive = Archive();
     archive.addFile(archiveFile);
@@ -242,24 +238,21 @@ void main() {
     final decodedFile = archiveDecoded.files.first;
     expect(decodedFile.name, origialFileName);
   });
-
   test('zip executable', () async {
     // Only tested on linux so far
     if (Platform.isLinux || Platform.isMacOS) {
       final path = Directory.systemTemp.createTempSync('zip_executable').path;
       final srcPath = p.join(path, 'src');
-
       try {
         Directory(path).deleteSync(recursive: true);
+      // ignore: avoid_catches_without_on_clauses
       } catch (_) {}
       final dir = Directory(srcPath);
       await dir.create(recursive: true);
-
       // Create an executable file and zip it
       final file = File(p.join(srcPath, 'test.bin'));
       await file.writeAsString('bin', flush: true);
       await Process.run('chmod', ['+x', file.path]);
-
       final subdir = Directory(p.join(dir.path, 'subdir'));
       subdir.createSync(recursive: true);
       final file2 = File(p.join(subdir.path, 'test2.bin'));
@@ -271,13 +264,11 @@ void main() {
       final bytes = await File(dstFilePath).readAsBytes();
       // Decode the Zip file
       final archive = ZipDecoder().decodeBytes(bytes);
-
       final archiveFile = archive.first;
       expect(archiveFile.mode, file.statSync().mode);
       expect(archiveFile.isFile, true);
     }
   });
-
   test('encode', () {
     final archive = Archive();
     const bdata = 'hello world';
@@ -285,13 +276,10 @@ void main() {
     const name = 'abc.txt';
     final afile = ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
     archive.addFile(afile);
-
     final zip_data = ZipEncoder().encode(archive)!;
-
     File(p.join(testDirPath, 'out/uncompressed.zip'))
       ..createSync(recursive: true)
       ..writeAsBytesSync(zip_data);
-
     final arc = ZipDecoder().decodeBytes(zip_data, verify: true);
     expect(arc.numberOfFiles(), equals(1));
     final arcData = arc.fileData(0);
@@ -300,21 +288,17 @@ void main() {
       expect(arcData[i], equals(bdata.codeUnits[i]));
     }
   });
-
   test('encode with timestamp', () {
     final archive = Archive();
-    final bdata = 'some file data';
+    const bdata = 'some file data';
     final bytes = Uint8List.fromList(bdata.codeUnits);
-    final name = 'somefile.txt';
+    const name = 'somefile.txt';
     final afile = ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
     archive.addFile(afile);
-
     final zip_data = ZipEncoder().encode(archive, modified: DateTime.utc(2010, DateTime.january, 1))!;
-
     File(p.join(testDirPath, 'out/uncompressed.zip'))
       ..createSync(recursive: true)
       ..writeAsBytesSync(zip_data);
-
     final arc = ZipDecoder().decodeBytes(zip_data, verify: true);
     expect(arc.numberOfFiles(), equals(1));
     final arcData = arc.fileData(0);
@@ -324,38 +308,30 @@ void main() {
     }
     expect(arc[0].lastModTime, equals(1008795648));
   });
-
   test('password', () {
     final file = File(p.join(testDirPath, 'res/zip/password_zipcrypto.zip'));
     final bytes = file.readAsBytesSync();
-
     final b = File(p.join(testDirPath, 'res/zip/hello.txt'));
     final b_bytes = b.readAsBytesSync();
-
     final archive = ZipDecoder().decodeBytes(bytes, verify: true, password: 'test1234');
     expect(archive.numberOfFiles(), equals(1));
-
     for (var i = 0; i < archive.numberOfFiles(); ++i) {
       final z_bytes = archive.fileData(i);
       if (archive.fileName(i) == 'hello.txt') {
         compare_bytes(z_bytes, b_bytes);
       } else {
-        throw TestFailure('Invalid file found');
+        fail('Invalid file found');
       }
     }
   });
-
   test('decode/encode', () {
     final file = File(p.join(testDirPath, 'res/test.zip'));
     final bytes = file.readAsBytesSync();
-
     final archive = ZipDecoder().decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(2));
-
     final b = File(p.join(testDirPath, 'res/cat.jpg'));
     final b_bytes = b.readAsBytesSync();
     final a_bytes = a_txt.codeUnits;
-
     for (var i = 0; i < archive.numberOfFiles(); ++i) {
       final z_bytes = archive.fileData(i);
       if (archive.fileName(i) == 'a.txt') {
@@ -363,52 +339,43 @@ void main() {
       } else if (archive.fileName(i) == 'cat.jpg') {
         compare_bytes(z_bytes, b_bytes);
       } else {
-        throw TestFailure('Invalid file found');
+        fail('Invalid file found');
       }
     }
-
     // Encode the archive we just decoded
     final zipped = ZipEncoder().encode(archive)!;
-
     final f = File(p.join(testDirPath, 'out/test.zip'));
     f.createSync(recursive: true);
     f.writeAsBytesSync(zipped);
-
     // Decode the archive we just encoded
     final archive2 = ZipDecoder().decodeBytes(zipped, verify: true);
-
     expect(archive2.numberOfFiles(), equals(archive.numberOfFiles()));
     for (var i = 0; i < archive2.numberOfFiles(); ++i) {
       expect(archive2.fileName(i), equals(archive.fileName(i)));
       expect(archive2.fileSize(i), equals(archive.fileSize(i)));
     }
   });
-
   for (final Z in zipTests) {
     final z = Z as Map<String, dynamic>;
     test('unzip ${z['Name']}', () {
       final file = File(p.join(testDirPath, z['Name'] as String));
       final bytes = file.readAsBytesSync();
-
       final zipDecoder = ZipDecoder();
       final archive = zipDecoder.decodeBytes(bytes, verify: true);
       final zipFiles = zipDecoder.directory.fileHeaders;
-
       if (z.containsKey('Comment')) {
         expect(zipDecoder.directory.zipFileComment, z['Comment']);
       }
-
       if (!z.containsKey('File')) {
         return;
       }
+      // ignore: avoid_dynamic_calls
       expect(zipFiles.length, equals(z['File'].length));
-
       for (var i = 0; i < zipFiles.length; ++i) {
         final zipFileHeader = zipFiles[i];
         final zipFile = zipFileHeader.file;
-
+        // ignore: avoid_dynamic_calls
         final hdr = z['File'][i] as Map<String, dynamic>;
-
         if (hdr.containsKey('Name')) {
           expect(zipFile!.filename, equals(hdr['Name']));
         }

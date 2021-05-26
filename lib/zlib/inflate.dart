@@ -32,14 +32,13 @@ class Inflate {
 
   void streamInput(List<int> bytes) {
     if (inputSet && input is InputStream) {
-      var i = input as InputStream;
+      final i = input as InputStream;
       i.offset = _blockPos;
       final inputLen = input.length;
       final newLen = inputLen + bytes.length;
       final newBytes = Uint8List(newLen);
       newBytes.setRange(0, inputLen, i.buffer, i.offset);
       newBytes.setRange(inputLen, newLen, bytes, 0);
-
       input = InputStream(newBytes);
     } else {
       input = InputStream(bytes);
@@ -51,46 +50,47 @@ class Inflate {
     _bitBuffer = 0;
     _bitBufferLen = 0;
     if (output is OutputStream) {
+      // ignore: avoid_dynamic_calls
       output.clear();
     }
     if (!inputSet || input.isEOS) {
       return null;
     }
-
     try {
       if (input is InputStream) {
-        var i = input as InputStream;
+        final i = input as InputStream;
         _blockPos = i.offset;
       }
       _parseBlock();
       // If it didn't finish reading the block, it will have thrown an exception
       _blockPos = 0;
+    // ignore: avoid_catches_without_on_clauses
     } catch (e) {
       return null;
     }
-
     if (output is OutputStream) {
+      // ignore: avoid_dynamic_calls
       return output.getBytes() as List<int>;
+    } else {
+      return null;
     }
-    return null;
   }
 
   /// Get the decompressed data.
   Uint8List getBytes() {
+    // ignore: avoid_dynamic_calls
     return output.getBytes() as Uint8List;
   }
 
   void _inflate() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
-    if (!inputSet) {
-      return;
-    }
-
-    while (!input.isEOS) {
-      final more = _parseBlock();
-      if (!more) {
-        break;
+    if (inputSet) {
+      while (!input.isEOS) {
+        final more = _parseBlock();
+        if (!more) {
+          break;
+        }
       }
     }
   }
@@ -100,87 +100,74 @@ class Inflate {
   bool _parseBlock() {
     if (input.isEOS) {
       return false;
-    }
-
-    // Each block has a 3-bit header
-    final hdr = _readBits(3);
-
-    // BFINAL (is this the final block)?
-    final bfinal = (hdr & 0x1) != 0;
-
-    // BTYPE (the type of block)
-    final btype = hdr >> 1;
-    switch (btype) {
-      case _BLOCK_UNCOMPRESSED:
-        _parseUncompressedBlock();
-        break;
-      case _BLOCK_FIXED_HUFFMAN:
-        _parseFixedHuffmanBlock();
-        break;
-      case _BLOCK_DYNAMIC_HUFFMAN:
-        _parseDynamicHuffmanBlock();
-        break;
-      default:
+    } else {
+      // Each block has a 3-bit header
+      final hdr = _readBits(3);
+      // BFINAL (is this the final block)?
+      final bfinal = (hdr & 0x1) != 0;
+      // BTYPE (the type of block)
+      final btype = hdr >> 1;
+      switch (btype) {
+        case _BLOCK_UNCOMPRESSED:
+          _parseUncompressedBlock();
+          break;
+        case _BLOCK_FIXED_HUFFMAN:
+          _parseFixedHuffmanBlock();
+          break;
+        case _BLOCK_DYNAMIC_HUFFMAN:
+          _parseDynamicHuffmanBlock();
+          break;
+        default:
         // reserved or other
-        throw ArchiveException('unknown BTYPE: $btype');
+          throw ArchiveException('unknown BTYPE: $btype');
+      }
+      // Continue while not the final block
+      return !bfinal;
     }
-
-    // Continue while not the final block
-    return !bfinal;
   }
 
   /// Read a number of bits from the input stream.
   int _readBits(int length) {
     if (length == 0) {
       return 0;
-    }
-
-    // not enough buffer
-    while (_bitBufferLen < length) {
-      if (input.isEOS) {
-        throw ArchiveException('input buffer is broken');
+    } else {
+      // not enough buffer
+      while (_bitBufferLen < length) {
+        if (input.isEOS) {
+          throw const ArchiveException('input buffer is broken');
+        }
+        // input byte
+        final octet = input.readByte();
+        // concat octet
+        _bitBuffer |= octet << _bitBufferLen;
+        _bitBufferLen += 8;
       }
-
-      // input byte
-      final octet = input.readByte();
-
-      // concat octet
-      _bitBuffer |= octet << _bitBufferLen;
-      _bitBufferLen += 8;
+      // output byte
+      final octet = _bitBuffer & ((1 << length) - 1);
+      _bitBuffer >>= length;
+      _bitBufferLen -= length;
+      return octet;
     }
-
-    // output byte
-    final octet = _bitBuffer & ((1 << length) - 1);
-    _bitBuffer >>= length;
-    _bitBufferLen -= length;
-
-    return octet;
   }
 
   /// Read huffman code using [table].
   int _readCodeByTable(HuffmanTable table) {
     final codeTable = table.table;
     final maxCodeLength = table.maxCodeLength;
-
     // Not enough buffer
     while (_bitBufferLen < maxCodeLength) {
       if (input.isEOS) {
         break;
       }
-
       final octet = input.readByte();
-
       _bitBuffer |= octet << _bitBufferLen;
       _bitBufferLen += 8;
     }
-
     // read max length
     final codeWithLength = codeTable[_bitBuffer & ((1 << maxCodeLength) - 1)];
     final codeLength = codeWithLength >> 16;
-
     _bitBuffer >>= codeLength;
     _bitBufferLen -= codeLength;
-
     return codeWithLength & 0xffff;
   }
 
@@ -188,20 +175,17 @@ class Inflate {
     // skip buffered header bits
     _bitBuffer = 0;
     _bitBufferLen = 0;
-
     final len = _readBits(16);
     final nlen = _readBits(16) ^ 0xffff;
-
     // Make sure the block size checksum is valid.
     if (len != 0 && len != nlen) {
-      throw ArchiveException('Invalid uncompressed block header');
+      throw const ArchiveException('Invalid uncompressed block header');
     }
-
     // check size
     if (len > input.length) {
-      throw ArchiveException('Input buffer is broken');
+      throw const ArchiveException('Input buffer is broken');
     }
-
+    // ignore: avoid_dynamic_calls
     output.writeInputStream(input.readBytes(len));
   }
 
@@ -216,74 +200,62 @@ class Inflate {
     final numDistanceCodes = _readBits(5) + 1;
     // number of code lengths.
     final numCodeLengths = _readBits(4) + 4;
-
     // decode code lengths
     final codeLengths = Uint8List(_ORDER.length);
     for (var i = 0; i < numCodeLengths; ++i) {
       codeLengths[_ORDER[i]] = _readBits(3);
     }
-
     final codeLengthsTable = HuffmanTable(codeLengths);
-
     // literal and length code
     final litlenLengths = Uint8List(numLitLengthCodes);
-
     // distance code
     final distLengths = Uint8List(numDistanceCodes);
-
     final litlen = _decode(numLitLengthCodes, codeLengthsTable, litlenLengths);
-
     final dist = _decode(numDistanceCodes, codeLengthsTable, distLengths);
-
     _decodeHuffman(HuffmanTable(litlen), HuffmanTable(dist));
   }
 
   void _decodeHuffman(HuffmanTable litlen, HuffmanTable dist) {
     for (;;) {
       final code = _readCodeByTable(litlen);
-
       if (code < 0 || code > 285) {
         throw ArchiveException('Invalid Huffman Code $code');
       }
-
       // 256 - End of Huffman block
       if (code == 256) {
         break;
       }
-
       // [0, 255] - Literal
       if (code < 256) {
+        // ignore: avoid_dynamic_calls
         output.writeByte(code & 0xff);
         continue;
       }
-
       // [257, 285] Dictionary Lookup
       // length code
       final ti = code - 257;
-
       var codeLength = _LENGTH_CODE_TABLE[ti] + _readBits(_LENGTH_EXTRA_TABLE[ti]);
-
       // distance code
       final distCode = _readCodeByTable(dist);
       if (distCode >= 0 && distCode <= 29) {
         final distance = _DIST_CODE_TABLE[distCode] + _readBits(_DIST_EXTRA_TABLE[distCode]);
-
         // lz77 decode
         while (codeLength > distance) {
+          // ignore: avoid_dynamic_calls
           output.writeBytes(output.subset(-distance));
           codeLength -= distance;
         }
-
         if (codeLength == distance) {
+          // ignore: avoid_dynamic_calls
           output.writeBytes(output.subset(-distance));
         } else {
+          // ignore: avoid_dynamic_calls
           output.writeBytes(output.subset(-distance, codeLength - distance));
         }
       } else {
-        throw ArchiveException('Illegal unused distance symbol');
+        throw const ArchiveException('Illegal unused distance symbol');
       }
     }
-
     while (_bitBufferLen >= 8) {
       _bitBufferLen -= 8;
       input.rewind(1);
@@ -306,6 +278,7 @@ class Inflate {
         case 17:
           // Repeat 0
           var repeat = 3 + _readBits(3);
+          // ignore: invariant_booleans
           while (repeat-- > 0) {
             lengths[i++] = 0;
           }
@@ -314,6 +287,7 @@ class Inflate {
         case 18:
           // Repeat lots of 0s.
           var repeat = 11 + _readBits(7);
+          // ignore: invariant_booleans, false positive?
           while (repeat-- > 0) {
             lengths[i++] = 0;
           }
@@ -323,13 +297,13 @@ class Inflate {
           // Literal bitlength for this code.
           if (code < 0 || code > 15) {
             throw ArchiveException('Invalid Huffman Code: $code');
+          } else {
+            lengths[i++] = code;
+            prev = code;
+            break;
           }
-          lengths[i++] = code;
-          prev = code;
-          break;
       }
     }
-
     return lengths;
   }
 

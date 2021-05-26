@@ -15,19 +15,17 @@ void extractArchiveToDisk(Archive archive, String outputPath) {
     outDir.createSync(recursive: true);
   }
   for (final file in archive.files) {
-    if (!file.isFile) {
-      continue;
+    if (file.isFile) {
+      final f = File('${outputPath}${Platform.pathSeparator}${file.name}');
+      f.parent.createSync(recursive: true);
+      f.writeAsBytesSync(file.content as List<int>);
     }
-    final f = File('${outputPath}${Platform.pathSeparator}${file.name}');
-    f.parent.createSync(recursive: true);
-    f.writeAsBytesSync(file.content as List<int>);
   }
 }
 
 void extractFileToDisk(String inputPath, String outputPath, {String? password}) {
   Directory? tempDir;
   var archivePath = inputPath;
-
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
     tempDir = Directory.systemTemp.createTempSync('dart_archive');
     archivePath = '${tempDir.path}${Platform.pathSeparator}temp.tar';
@@ -45,7 +43,6 @@ void extractFileToDisk(String inputPath, String outputPath, {String? password}) 
     input.close();
     output.close();
   }
-
   Archive archive;
   if (archivePath.endsWith('tar')) {
     final input = InputFileStream(archivePath);
@@ -56,16 +53,13 @@ void extractFileToDisk(String inputPath, String outputPath, {String? password}) 
   } else {
     throw ArgumentError.value(inputPath, 'inputPath', 'Must end tar.gz, tgz, tar.bz2, tbz, tar or zip.');
   }
-
   for (final file in archive.files) {
-    if (!file.isFile) {
-      continue;
+    if (file.isFile) {
+      final f = File('${outputPath}${Platform.pathSeparator}${file.name}');
+      f.parent.createSync(recursive: true);
+      f.writeAsBytesSync(file.content as List<int>);
     }
-    final f = File('${outputPath}${Platform.pathSeparator}${file.name}');
-    f.parent.createSync(recursive: true);
-    f.writeAsBytesSync(file.content as List<int>);
   }
-
   if (tempDir != null) {
     tempDir.delete(recursive: true);
   }

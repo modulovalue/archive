@@ -21,28 +21,28 @@ class Deflate {
 
   int crc32 = 0;
 
-  Deflate(List<int> bytes,
-      {int? level = DEFAULT_COMPRESSION, int flush = FINISH, dynamic output})
-      : _input = InputStream(bytes),
+  Deflate(
+    List<int> bytes, {
+    int? level = DEFAULT_COMPRESSION,
+    int flush = FINISH,
+    dynamic output,
+  })  : _input = InputStream(bytes),
         _output = output ?? OutputStream() {
     _init(level);
     _deflate(flush);
   }
 
-  Deflate.buffer(this._input,
-      {int? level = DEFAULT_COMPRESSION, int flush = FINISH, dynamic output})
-      : _output = output ?? OutputStream() {
+  Deflate.buffer(this._input, {int? level = DEFAULT_COMPRESSION, int flush = FINISH, dynamic output}) : _output = output ?? OutputStream() {
     _init(level);
     _deflate(flush);
   }
 
-  void finish() {
-    _flushPending();
-  }
+  void finish() => _flushPending();
 
   /// Get the resulting compressed bytes.
   List<int> getBytes() {
     _flushPending();
+    // ignore: avoid_dynamic_calls
     return _output.getBytes() as List<int>;
   }
 
@@ -50,7 +50,9 @@ class Deflate {
   /// minimize memory usage.
   List<int> takeBytes() {
     _flushPending();
+    // ignore: avoid_dynamic_calls
     final bytes = _output.getBytes() as List<int>;
+    // ignore: avoid_dynamic_calls
     _output.clear();
     return bytes;
   }
@@ -71,15 +73,17 @@ class Deflate {
   int? get level => _level;
 
   /// Initialize the deflate structures for the given parameters.
-  void _init(int? level,
-      {int method = Z_DEFLATED,
-      int windowBits = MAX_WBITS,
-      int memLevel = DEF_MEM_LEVEL,
-      int strategy = Z_DEFAULT_STRATEGY}) {
+  void _init(
+    int? level, {
+    int method = Z_DEFLATED,
+    int windowBits = MAX_WBITS,
+    int memLevel = DEF_MEM_LEVEL,
+    int strategy = Z_DEFAULT_STRATEGY,
+  }) {
     if (level == null || level == Z_DEFAULT_COMPRESSION) {
+      // ignore: parameter_assignments
       level = 6;
     }
-
     if (memLevel < 1 ||
         memLevel > MAX_MEM_LEVEL ||
         method != Z_DEFLATED ||
@@ -89,140 +93,115 @@ class Deflate {
         level > 9 ||
         strategy < 0 ||
         strategy > Z_HUFFMAN_ONLY) {
-      throw ArchiveException('Invalid Deflate parameter');
+      throw const ArchiveException('Invalid Deflate parameter');
+    } else {
+      _config = _getConfig(level);
+      _dynamicLengthTree = Uint16List(HEAP_SIZE * 2);
+      _dynamicDistTree = Uint16List((2 * D_CODES + 1) * 2);
+      _bitLengthTree = Uint16List((2 * BL_CODES + 1) * 2);
+      _windowBits = windowBits;
+      _windowSize = 1 << _windowBits;
+      _windowMask = _windowSize - 1;
+      _hashBits = memLevel + 7;
+      _hashSize = 1 << _hashBits;
+      _hashMask = _hashSize - 1;
+      _hashShift = (_hashBits + MIN_MATCH - 1) ~/ MIN_MATCH;
+      _window = Uint8List(_windowSize * 2);
+      _prev = Uint16List(_windowSize);
+      _head = Uint16List(_hashSize);
+      _litBufferSize = 1 << (memLevel + 6); // 16K elements by default
+      // We overlay pending_buf and d_buf+l_buf. This works since the average
+      // output size for (length,distance) codes is <= 24 bits.
+      _pendingBuffer = Uint8List(_litBufferSize * 4);
+      _pendingBufferSize = _litBufferSize * 4;
+      _dbuf = _litBufferSize;
+      _lbuf = (1 + 2) * _litBufferSize;
+      _level = level;
+      _strategy = strategy;
+      _method = method;
+      _pending = 0;
+      _pendingOut = 0;
+      _status = BUSY_STATE;
+      _lastFlush = NO_FLUSH;
+      crc32 = 0;
+      _trInit();
+      _lmInit();
     }
-
-    _config = _getConfig(level);
-
-    _dynamicLengthTree = Uint16List(HEAP_SIZE * 2);
-    _dynamicDistTree = Uint16List((2 * D_CODES + 1) * 2);
-    _bitLengthTree = Uint16List((2 * BL_CODES + 1) * 2);
-
-    _windowBits = windowBits;
-    _windowSize = 1 << _windowBits;
-    _windowMask = _windowSize - 1;
-
-    _hashBits = memLevel + 7;
-    _hashSize = 1 << _hashBits;
-    _hashMask = _hashSize - 1;
-    _hashShift = ((_hashBits + MIN_MATCH - 1) ~/ MIN_MATCH);
-
-    _window = Uint8List(_windowSize * 2);
-    _prev = Uint16List(_windowSize);
-    _head = Uint16List(_hashSize);
-
-    _litBufferSize = 1 << (memLevel + 6); // 16K elements by default
-
-    // We overlay pending_buf and d_buf+l_buf. This works since the average
-    // output size for (length,distance) codes is <= 24 bits.
-    _pendingBuffer = Uint8List(_litBufferSize * 4);
-    _pendingBufferSize = _litBufferSize * 4;
-
-    _dbuf = _litBufferSize;
-    _lbuf = (1 + 2) * _litBufferSize;
-
-    _level = level;
-
-    _strategy = strategy;
-    _method = method;
-
-    _pending = 0;
-    _pendingOut = 0;
-
-    _status = BUSY_STATE;
-
-    _lastFlush = NO_FLUSH;
-
-    crc32 = 0;
-
-    _trInit();
-    _lmInit();
   }
 
   /// Compress the current input buffer.
   int _deflate(int flush) {
     if (flush > FINISH || flush < 0) {
-      throw ArchiveException('Invalid Deflate Parameter');
-    }
-
-    _lastFlush = flush;
-
-    // Flush as much pending output as possible
-    if (_pending != 0) {
-      // Make sure there is something to do and avoid duplicate consecutive
-      // flushes. For repeated and useless calls with FINISH, we keep
-      // returning Z_STREAM_END instead of Z_BUFF_ERROR.
-      _flushPending();
-    }
-
-    // Start a block or continue the current one.
-    if (!_input.isEOS ||
-        _lookAhead != 0 ||
-        (flush != NO_FLUSH && _status != FINISH_STATE)) {
-      var bstate = -1;
-      switch (_config.function) {
-        case STORED:
-          bstate = _deflateStored(flush);
-          break;
-        case FAST:
-          bstate = _deflateFast(flush);
-          break;
-        case SLOW:
-          bstate = _deflateSlow(flush);
-          break;
-        default:
-          break;
-      }
-
-      if (bstate == FINISH_STARTED || bstate == FINISH_DONE) {
-        _status = FINISH_STATE;
-      }
-
-      if (bstate == NEED_MORE || bstate == FINISH_STARTED) {
-        // If flush != Z_NO_FLUSH && avail_out == 0, the next call
-        // of deflate should use the same flush parameter to make sure
-        // that the flush is complete. So we don't have to output an
-        // empty block here, this will be done at next call. This also
-        // ensures that for a very small output buffer, we emit at most
-        // one empty block.
-        return Z_OK;
-      }
-
-      if (bstate == BLOCK_DONE) {
-        if (flush == PARTIAL_FLUSH) {
-          _trAlign();
-        } else {
-          // FULL_FLUSH or SYNC_FLUSH
-          _trStoredBlock(0, 0, false);
-          // For a full flush, this empty block will be recognized
-          // as a special marker by inflate_sync().
-          if (flush == FULL_FLUSH) {
-            for (var i = 0; i < _hashSize; i++) {
-              // forget history
-              _head[i] = 0;
-            }
-          }
-        }
-
+      throw const ArchiveException('Invalid Deflate Parameter');
+    } else {
+      _lastFlush = flush;
+      // Flush as much pending output as possible
+      if (_pending != 0) {
+        // Make sure there is something to do and avoid duplicate consecutive
+        // flushes. For repeated and useless calls with FINISH, we keep
+        // returning Z_STREAM_END instead of Z_BUFF_ERROR.
         _flushPending();
       }
+      // Start a block or continue the current one.
+      if (!_input.isEOS || _lookAhead != 0 || (flush != NO_FLUSH && _status != FINISH_STATE)) {
+        var bstate = -1;
+        switch (_config.function) {
+          case STORED:
+            bstate = _deflateStored(flush);
+            break;
+          case FAST:
+            bstate = _deflateFast(flush);
+            break;
+          case SLOW:
+            bstate = _deflateSlow(flush);
+            break;
+          default:
+            break;
+        }
+        if (bstate == FINISH_STARTED || bstate == FINISH_DONE) {
+          _status = FINISH_STATE;
+        }
+        if (bstate == NEED_MORE || bstate == FINISH_STARTED) {
+          // If flush != Z_NO_FLUSH && avail_out == 0, the next call
+          // of deflate should use the same flush parameter to make sure
+          // that the flush is complete. So we don't have to output an
+          // empty block here, this will be done at next call. This also
+          // ensures that for a very small output buffer, we emit at most
+          // one empty block.
+          return Z_OK;
+        }
+        if (bstate == BLOCK_DONE) {
+          if (flush == PARTIAL_FLUSH) {
+            _trAlign();
+          } else {
+            // FULL_FLUSH or SYNC_FLUSH
+            _trStoredBlock(0, 0, false);
+            // For a full flush, this empty block will be recognized
+            // as a special marker by inflate_sync().
+            if (flush == FULL_FLUSH) {
+              for (var i = 0; i < _hashSize; i++) {
+                // forget history
+                _head[i] = 0;
+              }
+            }
+          }
+          _flushPending();
+        }
+      }
+      if (flush != FINISH) {
+        return Z_OK;
+      } else {
+        return Z_STREAM_END;
+      }
     }
-
-    if (flush != FINISH) {
-      return Z_OK;
-    }
-
-    return Z_STREAM_END;
   }
 
   void _lmInit() {
     _actualWindowSize = 2 * _windowSize;
-
     _head[_hashSize - 1] = 0;
     for (var i = 0; i < _hashSize - 1; i++) {
       _head[i] = 0;
     }
-
     _strStart = 0;
     _blockStart = 0;
     _lookAhead = 0;
@@ -235,17 +214,13 @@ class Deflate {
   void _trInit() {
     _lDesc.dynamicTree = _dynamicLengthTree;
     _lDesc.staticDesc = _StaticTree.staticLDesc;
-
     _dDesc.dynamicTree = _dynamicDistTree;
     _dDesc.staticDesc = _StaticTree.staticDDesc;
-
     _blDesc.dynamicTree = _bitLengthTree;
     _blDesc.staticDesc = _StaticTree.staticBlDesc;
-
     _bitBuffer = 0;
     _numValidBits = 0;
     _lastEOBLen = 8; // enough lookahead for inflate
-
     // Initialize the first block of the first file:
     _initBlock();
   }
@@ -261,7 +236,6 @@ class Deflate {
     for (var i = 0; i < BL_CODES; i++) {
       _bitLengthTree[i * 2] = 0;
     }
-
     _dynamicLengthTree[END_BLOCK * 2] = 1;
     _optimalLen = _staticLen = 0;
     _lastLit = _matches = 0;
@@ -272,7 +246,7 @@ class Deflate {
   /// when the heap property is re-established (each father smaller than its
   /// two sons).
   void _pqdownheap(Uint16List tree, int k) {
-    var v = _heap[k];
+    final v = _heap[k];
     var j = k << 1; // left son of k
     while (j <= _heapLen) {
       // Set j to the smallest of the two sons:
@@ -283,9 +257,9 @@ class Deflate {
       if (_smaller(tree, v, _heap[j], _depth)) {
         break;
       }
-
       // Exchange v with the smallest son
       _heap[k] = _heap[j];
+      // ignore: parameter_assignments
       k = j;
       // And continue down the tree, setting j to the left son of k
       j <<= 1;
@@ -294,8 +268,7 @@ class Deflate {
   }
 
   static bool _smaller(Uint16List tree, int n, int m, Uint8List depth) {
-    return (tree[n * 2] < tree[m * 2] ||
-        (tree[n * 2] == tree[m * 2] && depth[n] <= depth[m]));
+    return tree[n * 2] < tree[m * 2] || (tree[n * 2] == tree[m * 2] && depth[n] <= depth[m]);
   }
 
   /// Scan a literal or distance tree to determine the frequencies of the codes
@@ -308,20 +281,18 @@ class Deflate {
     var count = 0; // repeat count of the current code
     var max_count = 7; // max repeat count
     var min_count = 4; // min repeat count
-
     if (nextlen == 0) {
       max_count = 138;
       min_count = 3;
     }
     tree[(max_code + 1) * 2 + 1] = 0xffff; // guard
-
     for (n = 0; n <= max_code; n++) {
       curlen = nextlen;
       nextlen = tree[(n + 1) * 2 + 1];
       if (++count < max_count && curlen == nextlen) {
         continue;
       } else if (count < min_count) {
-        _bitLengthTree[curlen * 2] = (_bitLengthTree[curlen * 2] + count);
+        _bitLengthTree[curlen * 2] = _bitLengthTree[curlen * 2] + count;
       } else if (curlen != 0) {
         if (curlen != prevlen) {
           _bitLengthTree[curlen * 2]++;
@@ -351,16 +322,14 @@ class Deflate {
   // bl_order of the last bit length code to send.
   int _buildBitLengthTree() {
     int max_blindex; // index of last bit length code of non zero freq
-
     // Determine the bit length frequencies for literal and distance trees
     _scanTree(_dynamicLengthTree, _lDesc.maxCode);
     _scanTree(_dynamicDistTree, _dDesc.maxCode);
-
     // Build the bit length tree:
     _blDesc._buildTree(this);
     // opt_len now includes the length of the tree representations, except
     // the lengths of the bit lengths codes and the 5+5+4 bits for the counts.
-
+    //
     // Determine the number of bit length codes to send. The pkzip format
     // requires that at least 4 bit length codes be sent. (appnote.txt says
     // 3 but the actual value used is 4.)
@@ -369,10 +338,8 @@ class Deflate {
         break;
       }
     }
-
     // Update opt_len to include the bit length tree and counts
     _optimalLen += 3 * (max_blindex + 1) + 5 + 5 + 4;
-
     return max_blindex;
   }
 
@@ -381,7 +348,6 @@ class Deflate {
   /// IN assertion: lcodes >= 257, dcodes >= 1, blcodes >= 4.
   void _sendAllTrees(int lcodes, int dcodes, int blcodes) {
     int rank; // index in bl_order
-
     _sendBits(lcodes - 257, 5); // not +255 as stated in appnote.txt
     _sendBits(dcodes - 1, 5);
     _sendBits(blcodes - 4, 4); // not -3 as stated in appnote.txt
@@ -402,12 +368,10 @@ class Deflate {
     var count = 0; // repeat count of the current code
     var max_count = 7; // max repeat count
     var min_count = 4; // min repeat count
-
     if (nextlen == 0) {
       max_count = 138;
       min_count = 3;
     }
-
     for (n = 0; n <= max_code; n++) {
       curlen = nextlen;
       nextlen = tree[(n + 1) * 2 + 1];
@@ -449,11 +413,10 @@ class Deflate {
   /// Output a byte on the stream.
   /// IN assertion: there is enough room in pending_buf.
   void _putBytes(Uint8List p, int start, int len) {
-    if (len == 0) {
-      return;
+    if (len != 0) {
+      _pendingBuffer.setRange(_pending, _pending + len, p, start);
+      _pending += len;
     }
-    _pendingBuffer.setRange(_pending, _pending + len, p, start);
-    _pending += len;
   }
 
   void _putByte(int c) {
@@ -461,24 +424,24 @@ class Deflate {
   }
 
   void _putShort(int w) {
-    _putByte((w));
-    _putByte((_rshift(w, 8)));
+    _putByte(w);
+    _putByte(_rshift(w, 8));
   }
 
   void _sendCode(int c, List<int> tree) {
-    _sendBits((tree[c * 2] & 0xffff), (tree[c * 2 + 1] & 0xffff));
+    _sendBits(tree[c * 2] & 0xffff, tree[c * 2 + 1] & 0xffff);
   }
 
   void _sendBits(int value_Renamed, int length) {
-    var len = length;
+    final len = length;
     if (_numValidBits > BUF_SIZE - len) {
-      var val = value_Renamed;
-      _bitBuffer = (_bitBuffer | (val << _numValidBits) & 0xffff);
+      final val = value_Renamed;
+      _bitBuffer = _bitBuffer | (val << _numValidBits) & 0xffff;
       _putShort(_bitBuffer);
-      _bitBuffer = (_rshift(val, (BUF_SIZE - _numValidBits)));
+      _bitBuffer = _rshift(val, BUF_SIZE - _numValidBits);
       _numValidBits += len - BUF_SIZE;
     } else {
-      _bitBuffer = (_bitBuffer | ((value_Renamed) << _numValidBits) & 0xffff);
+      _bitBuffer = _bitBuffer | (value_Renamed << _numValidBits) & 0xffff;
       _numValidBits += len;
     }
   }
@@ -495,9 +458,7 @@ class Deflate {
   void _trAlign() {
     _sendBits(STATIC_TREES << 1, 3);
     _sendCode(END_BLOCK, _StaticTree.STATIC_LTREE);
-
     biFlush();
-
     // Of the 10 bits for the empty block, we have already sent
     // (10 - bi_valid) bits. The lookahead for the last real code (before
     // the EOB of the previous block) was thus at least one plus the length
@@ -507,47 +468,41 @@ class Deflate {
       _sendCode(END_BLOCK, _StaticTree.STATIC_LTREE);
       biFlush();
     }
-
     _lastEOBLen = 7;
   }
 
   /// Save the match info and tally the frequency counts. Return true if
   /// the current block must be flushed.
   bool _trTally(int dist, int lc) {
-    _pendingBuffer[_dbuf + _lastLit * 2] = (_rshift(dist, 8));
+    _pendingBuffer[_dbuf + _lastLit * 2] = _rshift(dist, 8);
     _pendingBuffer[_dbuf + _lastLit * 2 + 1] = dist;
-
     _pendingBuffer[_lbuf + _lastLit] = lc;
     _lastLit++;
-
     if (dist == 0) {
       // lc is the unmatched char
       _dynamicLengthTree[lc * 2]++;
     } else {
       _matches++;
       // Here, lc is the match length - MIN_MATCH
+      // ignore: parameter_assignments
       dist--; // dist = match distance - 1
       _dynamicLengthTree[(_HuffmanTree.LENGTH_CODE[lc] + LITERALS + 1) * 2]++;
       _dynamicDistTree[_HuffmanTree._dCode(dist) * 2]++;
     }
-
     if ((_lastLit & 0x1fff) == 0 && _level > 2) {
       // Compute an upper bound for the compressed length
       var out_length = _lastLit * 8;
-      var in_length = _strStart - _blockStart;
+      final in_length = _strStart - _blockStart;
       int dcode;
       for (dcode = 0; dcode < D_CODES; dcode++) {
-        out_length = (out_length +
-            _dynamicDistTree[dcode * 2] *
-                (5 + _HuffmanTree.EXTRA_D_BITS[dcode]));
+        out_length = out_length + _dynamicDistTree[dcode * 2] * (5 + _HuffmanTree.EXTRA_D_BITS[dcode]);
       }
       out_length = _rshift(out_length, 3);
       if ((_matches < (_lastLit / 2)) && out_length < in_length / 2) {
         return true;
       }
     }
-
-    return (_lastLit == _litBufferSize - 1);
+    return _lastLit == _litBufferSize - 1;
     // We avoid equality with lit_bufsize because of wraparound at 64K
     // on 16 bit machines and because stored blocks are restricted to
     // 64K-1 bytes.
@@ -560,20 +515,16 @@ class Deflate {
     var lx = 0; // running index in l_buf
     int code; // the code to send
     int extra; // number of extra bits to send
-
     if (_lastLit != 0) {
       do {
-        dist = ((_pendingBuffer[_dbuf + lx * 2] << 8) & 0xff00) |
-            (_pendingBuffer[_dbuf + lx * 2 + 1] & 0xff);
+        dist = ((_pendingBuffer[_dbuf + lx * 2] << 8) & 0xff00) | (_pendingBuffer[_dbuf + lx * 2 + 1] & 0xff);
         lc = (_pendingBuffer[_lbuf + lx]) & 0xff;
         lx++;
-
         if (dist == 0) {
           _sendCode(lc, ltree); // send a literal byte
         } else {
           // Here, lc is the match length - MIN_MATCH
           code = _HuffmanTree.LENGTH_CODE[lc];
-
           _sendCode(code + LITERALS + 1, ltree); // send the length code
           extra = _HuffmanTree.EXTRA_L_BITS[code];
           if (extra != 0) {
@@ -582,7 +533,6 @@ class Deflate {
           }
           dist--; // dist is now the match distance - 1
           code = _HuffmanTree._dCode(dist);
-
           _sendCode(code, dtree); // send the distance code
           extra = _HuffmanTree.EXTRA_D_BITS[code];
           if (extra != 0) {
@@ -590,11 +540,9 @@ class Deflate {
             _sendBits(dist, extra); // send the extra distance bits
           }
         } // literal or match pair ?
-
         // Check that the overlay between pending_buf and d_buf+l_buf is ok:
       } while (lx < _lastLit);
     }
-
     _sendCode(END_BLOCK, ltree);
     _lastEOBLen = ltree[END_BLOCK * 2 + 1];
   }
@@ -619,7 +567,7 @@ class Deflate {
       bin_freq += _dynamicLengthTree[n * 2];
       n++;
     }
-    _dataType = (bin_freq > (_rshift(ascii_freq, 2)) ? Z_BINARY : Z_ASCII);
+    _dataType = bin_freq > (_rshift(ascii_freq, 2)) ? Z_BINARY : Z_ASCII;
   }
 
   /// Flush the bit buffer, keeping at most 7 bits in it.
@@ -630,7 +578,7 @@ class Deflate {
       _numValidBits = 0;
     } else if (_numValidBits >= 8) {
       _putByte(_bitBuffer);
-      _bitBuffer = (_rshift(_bitBuffer, 8));
+      _bitBuffer = _rshift(_bitBuffer, 8);
       _numValidBits -= 8;
     }
   }
@@ -651,18 +599,15 @@ class Deflate {
   void _copyBlock(int buf, int len, bool header) {
     _biWindup(); // align on byte boundary
     _lastEOBLen = 8; // enough lookahead for inflate
-
     if (header) {
       _putShort(len);
       _putShort((~len + 0x10000) & 0xffff);
     }
-
     _putBytes(_window, buf, len);
   }
 
   void _flushBlockOnly(bool eof) {
-    _trFlushBlock(
-        _blockStart >= 0 ? _blockStart : -1, _strStart - _blockStart, eof);
+    _trFlushBlock(_blockStart >= 0 ? _blockStart : -1, _strStart - _blockStart, eof);
     _blockStart = _strStart;
     _flushPending();
   }
@@ -678,47 +623,37 @@ class Deflate {
     // Stored blocks are limited to 0xffff bytes, pending_buf is limited
     // to pending_buf_size, and each stored block has a 5 byte header:
     var maxBlockSize = 0xffff;
-
     if (maxBlockSize > _pendingBufferSize - 5) {
       maxBlockSize = _pendingBufferSize - 5;
     }
-
     // Copy as much as possible from input to output:
     for (;;) {
       // Fill the window as much as possible:
       if (_lookAhead <= 1) {
         _fillWindow();
-
         if (_lookAhead == 0 && flush == NO_FLUSH) {
           return NEED_MORE;
         }
-
         if (_lookAhead == 0) {
           break; // flush the current block
         }
       }
-
       _strStart += _lookAhead;
       _lookAhead = 0;
-
       // Emit a stored block if pendingBuffer will be full:
-      var maxStart = _blockStart + maxBlockSize;
-
+      final maxStart = _blockStart + maxBlockSize;
       if (_strStart >= maxStart) {
-        _lookAhead = (_strStart - maxStart);
+        _lookAhead = _strStart - maxStart;
         _strStart = maxStart;
         _flushBlockOnly(false);
       }
-
       // Flush if we may have to slide, otherwise block_start may become
       // negative and the data will be gone:
       if (_strStart - _blockStart >= _windowSize - MIN_LOOKAHEAD) {
         _flushBlockOnly(false);
       }
     }
-
     _flushBlockOnly(flush == FINISH);
-
     return (flush == FINISH) ? FINISH_DONE : BLOCK_DONE;
   }
 
@@ -734,37 +669,30 @@ class Deflate {
     int optLenb;
     int staticLenb;
     var max_blindex = 0; // index of last bit length code of non zero freq
-
     // Build the Huffman trees unless a stored block is forced
     if (_level > 0) {
       // Check if the file is ascii or binary
       if (_dataType == Z_UNKNOWN) {
         setDataType();
       }
-
       // Construct the literal and distance trees
       _lDesc._buildTree(this);
-
       _dDesc._buildTree(this);
-
       // At this point, opt_len and static_len are the total bit lengths of
       // the compressed block data, excluding the tree representations.
-
+      //
       // Build the bit length tree for the above two trees, and get the index
       // in bl_order of the last bit length code to send.
       max_blindex = _buildBitLengthTree();
-
       // Determine the best encoding. Compute first the block length in bytes
-      optLenb = _rshift((_optimalLen + 3 + 7), 3);
-      staticLenb = _rshift((_staticLen + 3 + 7), 3);
-
+      optLenb = _rshift(_optimalLen + 3 + 7, 3);
+      staticLenb = _rshift(_staticLen + 3 + 7, 3);
       if (staticLenb <= optLenb) {
         optLenb = staticLenb;
       }
     } else {
       optLenb = staticLenb = storedLen + 5; // force a stored block
     }
-
     if (storedLen + 4 <= optLenb && buf != -1) {
       // 4: two words for the lengths
       // The test buf != NULL is only necessary if LIT_BUFSIZE > WSIZE.
@@ -781,12 +709,9 @@ class Deflate {
       _sendAllTrees(_lDesc.maxCode + 1, _dDesc.maxCode + 1, max_blindex + 1);
       _compressBlock(_dynamicLengthTree, _dynamicDistTree);
     }
-
     // The above check is made mod 2^32, for files larger than 512 MB
     // and uLong implemented on 32 bits.
-
     _initBlock();
-
     if (eof) {
       _biWindup();
     }
@@ -802,50 +727,41 @@ class Deflate {
   void _fillWindow() {
     do {
       // Amount of free space at the end of the window.
-      var more = (_actualWindowSize - _lookAhead - _strStart);
-
+      var more = _actualWindowSize - _lookAhead - _strStart;
       // Deal with 64K limit:
       if (more == 0 && _strStart == 0 && _lookAhead == 0) {
         more = _windowSize;
       } else if (_strStart >= _windowSize + _windowSize - MIN_LOOKAHEAD) {
         // If the window is almost full and there is insufficient lookahead,
         // move the upper half to the lower one to make room in the upper half.
-
         _window.setRange(0, _windowSize, _window, _windowSize);
-
         _matchStart -= _windowSize;
         _strStart -= _windowSize; // we now have strstart >= MAX_DIST
         _blockStart -= _windowSize;
-
         // Slide the hash table (could be avoided with 32 bit values
         // at the expense of memory usage). We slide even when level == 0
         // to keep the hash table consistent if we switch back to level > 0
         // later. (Using level 0 permanently is not an optimal usage of
         // zlib, so we don't care about this pathological case.)
-
         var n = _hashSize;
         var p = n;
         do {
-          var m = (_head[--p] & 0xffff);
-          _head[p] = (m >= _windowSize ? (m - _windowSize) : 0);
+          final m = _head[--p] & 0xffff;
+          _head[p] = m >= _windowSize ? (m - _windowSize) : 0;
         } while (--n != 0);
-
         n = _windowSize;
         p = n;
         do {
-          var m = (_prev[--p] & 0xffff);
-          _prev[p] = (m >= _windowSize ? (m - _windowSize) : 0);
+          final m = _prev[--p] & 0xffff;
+          _prev[p] = m >= _windowSize ? (m - _windowSize) : 0;
           // If n is not on any hash chain, prev[n] is garbage but
           // its value will never be used.
         } while (--n != 0);
-
         more += _windowSize;
       }
-
       if (_input.isEOS) {
         return;
       }
-
       // If there was no sliding:
       //    strstart <= WSIZE+MAX_DIST-1 && lookahead <= MIN_LOOKAHEAD - 1 &&
       //    more == window_size - lookahead - strstart
@@ -856,18 +772,13 @@ class Deflate {
       //   strstart + s->lookahead <= input_size => more >= MIN_LOOKAHEAD.
       // Otherwise, window_size == 2*WSIZE so more >= 2.
       // If there was sliding, more >= WSIZE. So in all cases, more >= 2.
-
-      var n = _readBuf(_window, _strStart + _lookAhead, more);
+      final n = _readBuf(_window, _strStart + _lookAhead, more);
       _lookAhead += n;
-
       // Initialize the hash value now that we have some input:
       if (_lookAhead >= MIN_MATCH) {
         _insertHash = _window[_strStart] & 0xff;
-        _insertHash =
-            (((_insertHash) << _hashShift) ^ (_window[_strStart + 1] & 0xff)) &
-                _hashMask;
+        _insertHash = ((_insertHash << _hashShift) ^ (_window[_strStart + 1] & 0xff)) & _hashMask;
       }
-
       // If the whole input has less than MIN_MATCH bytes, ins_h is garbage,
       // but this is not important since only literal bytes will be emitted.
     } while (_lookAhead < MIN_LOOKAHEAD && !_input.isEOS);
@@ -881,7 +792,6 @@ class Deflate {
   int _deflateFast(int flush) {
     var hash_head = 0; // head of the hash chain
     bool bflush; // set if current block must be flushed
-
     for (;;) {
       // Make sure that we always have enough lookahead, except
       // at the end of the input file. We need MAX_MATCH bytes
@@ -896,54 +806,38 @@ class Deflate {
           break; // flush the current block
         }
       }
-
       // Insert the string window[strstart .. strstart+2] in the
       // dictionary, and set hash_head to the head of the hash chain:
       if (_lookAhead >= MIN_MATCH) {
-        _insertHash = (((_insertHash) << _hashShift) ^
-                (_window[_strStart + (MIN_MATCH - 1)] & 0xff)) &
-            _hashMask;
-
-        hash_head = (_head[_insertHash] & 0xffff);
+        _insertHash = ((_insertHash << _hashShift) ^ (_window[_strStart + (MIN_MATCH - 1)] & 0xff)) & _hashMask;
+        hash_head = _head[_insertHash] & 0xffff;
         _prev[_strStart & _windowMask] = _head[_insertHash];
         _head[_insertHash] = _strStart;
       }
-
       // Find the longest match, discarding those <= prev_length.
       // At this point we have always match_length < MIN_MATCH
-
-      if (hash_head != 0 &&
-          ((_strStart - hash_head) & 0xffff) <= _windowSize - MIN_LOOKAHEAD) {
+      if (hash_head != 0 && ((_strStart - hash_head) & 0xffff) <= _windowSize - MIN_LOOKAHEAD) {
         // To simplify the code, we prevent matches with the string
         // of window index 0 (in particular we have to avoid a match
         // of the string with itself at the start of the input file).
         if (_strategy != Z_HUFFMAN_ONLY) {
           _matchLength = _longestMatch(hash_head);
         }
-
         // longest_match() sets match_start
       }
-
       if (_matchLength >= MIN_MATCH) {
         bflush = _trTally(_strStart - _matchStart, _matchLength - MIN_MATCH);
-
         _lookAhead -= _matchLength;
-
         // Insert strings in the hash table only if the match length
         // is not too large. This saves time but degrades compression.
         if (_matchLength <= _config.maxLazy && _lookAhead >= MIN_MATCH) {
           _matchLength--; // string at strstart already in hash table
           do {
             _strStart++;
-
-            _insertHash = ((_insertHash << _hashShift) ^
-                    (_window[_strStart + (MIN_MATCH - 1)] & 0xff)) &
-                _hashMask;
-
-            hash_head = (_head[_insertHash] & 0xffff);
+            _insertHash = ((_insertHash << _hashShift) ^ (_window[_strStart + (MIN_MATCH - 1)] & 0xff)) & _hashMask;
+            hash_head = _head[_insertHash] & 0xffff;
             _prev[_strStart & _windowMask] = _head[_insertHash];
             _head[_insertHash] = _strStart;
-
             // strstart never exceeds WSIZE-MAX_MATCH, so there are
             // always MIN_MATCH bytes ahead.
           } while (--_matchLength != 0);
@@ -952,28 +846,21 @@ class Deflate {
           _strStart += _matchLength;
           _matchLength = 0;
           _insertHash = _window[_strStart] & 0xff;
-
-          _insertHash = (((_insertHash) << _hashShift) ^
-                  (_window[_strStart + 1] & 0xff)) &
-              _hashMask;
+          _insertHash = ((_insertHash << _hashShift) ^ (_window[_strStart + 1] & 0xff)) & _hashMask;
           // If lookahead < MIN_MATCH, ins_h is garbage, but it does not
           // matter since it will be recomputed at next deflate call.
         }
       } else {
         // No match, output a literal byte
-
         bflush = _trTally(0, _window[_strStart] & 0xff);
         _lookAhead--;
         _strStart++;
       }
-
       if (bflush) {
         _flushBlockOnly(false);
       }
     }
-
     _flushBlockOnly(flush == FINISH);
-
     return flush == FINISH ? FINISH_DONE : BLOCK_DONE;
   }
 
@@ -983,7 +870,6 @@ class Deflate {
   int _deflateSlow(int flush) {
     var hash_head = 0; // head of hash chain
     bool bflush; // set if current block must be flushed
-
     // Process the input block.
     for (;;) {
       // Make sure that we always have enough lookahead, except
@@ -992,85 +878,62 @@ class Deflate {
       // string following the next match.
       if (_lookAhead < MIN_LOOKAHEAD) {
         _fillWindow();
-
         if (_lookAhead < MIN_LOOKAHEAD && flush == NO_FLUSH) {
           return NEED_MORE;
         }
-
         if (_lookAhead == 0) {
           break; // flush the current block
         }
       }
-
       // Insert the string window[strstart .. strstart+2] in the
       // dictionary, and set hash_head to the head of the hash chain:
-
       if (_lookAhead >= MIN_MATCH) {
-        _insertHash = (((_insertHash) << _hashShift) ^
-                (_window[_strStart + (MIN_MATCH - 1)] & 0xff)) &
-            _hashMask;
-        hash_head = (_head[_insertHash] & 0xffff);
+        _insertHash = ((_insertHash << _hashShift) ^ (_window[_strStart + (MIN_MATCH - 1)] & 0xff)) & _hashMask;
+        hash_head = _head[_insertHash] & 0xffff;
         _prev[_strStart & _windowMask] = _head[_insertHash];
         _head[_insertHash] = _strStart;
       }
-
       // Find the longest match, discarding those <= prev_length.
       _prevLength = _matchLength;
       _prevMatch = _matchStart;
       _matchLength = MIN_MATCH - 1;
-
-      if (hash_head != 0 &&
-          _prevLength < _config.maxLazy &&
-          ((_strStart - hash_head) & 0xffff) <= _windowSize - MIN_LOOKAHEAD) {
+      if (hash_head != 0 && _prevLength < _config.maxLazy && ((_strStart - hash_head) & 0xffff) <= _windowSize - MIN_LOOKAHEAD) {
         // To simplify the code, we prevent matches with the string
         // of window index 0 (in particular we have to avoid a match
         // of the string with itself at the start of the input file).
-
         if (_strategy != Z_HUFFMAN_ONLY) {
           _matchLength = _longestMatch(hash_head);
         }
         // longest_match() sets match_start
-
-        if (_matchLength <= 5 &&
-            (_strategy == Z_FILTERED ||
-                (_matchLength == MIN_MATCH &&
-                    _strStart - _matchStart > 4096))) {
+        if (_matchLength <= 5 && (_strategy == Z_FILTERED || (_matchLength == MIN_MATCH && _strStart - _matchStart > 4096))) {
           // If prev_match is also MIN_MATCH, match_start is garbage
           // but we will ignore the current match anyway.
           _matchLength = MIN_MATCH - 1;
         }
       }
-
       // If there was a match at the previous step and the current
       // match is not better, output the previous match:
       if (_prevLength >= MIN_MATCH && _matchLength <= _prevLength) {
-        var max_insert = _strStart + _lookAhead - MIN_MATCH;
+        final max_insert = _strStart + _lookAhead - MIN_MATCH;
         // Do not insert strings in hash table beyond this.
-
         bflush = _trTally(_strStart - 1 - _prevMatch, _prevLength - MIN_MATCH);
-
         // Insert in hash table all strings up to the end of the match.
         // strstart-1 and strstart are already inserted. If there is not
         // enough lookahead, the last two strings are not inserted in
         // the hash table.
-        _lookAhead -= (_prevLength - 1);
+        _lookAhead -= _prevLength - 1;
         _prevLength -= 2;
-
         do {
           if (++_strStart <= max_insert) {
-            _insertHash = (((_insertHash) << _hashShift) ^
-                    (_window[_strStart + (MIN_MATCH - 1)] & 0xff)) &
-                _hashMask;
-            hash_head = (_head[_insertHash] & 0xffff);
+            _insertHash = ((_insertHash << _hashShift) ^ (_window[_strStart + (MIN_MATCH - 1)] & 0xff)) & _hashMask;
+            hash_head = _head[_insertHash] & 0xffff;
             _prev[_strStart & _windowMask] = _head[_insertHash];
             _head[_insertHash] = _strStart;
           }
         } while (--_prevLength != 0);
-
         _matchAvailable = 0;
         _matchLength = MIN_MATCH - 1;
         _strStart++;
-
         if (bflush) {
           _flushBlockOnly(false);
         }
@@ -1078,9 +941,7 @@ class Deflate {
         // If there was no match at the previous position, output a
         // single literal. If there was a match but the current match
         // is longer, truncate the previous match to a single literal.
-
         bflush = _trTally(0, _window[_strStart - 1] & 0xff);
-
         if (bflush) {
           _flushBlockOnly(false);
         }
@@ -1094,13 +955,11 @@ class Deflate {
         _lookAhead--;
       }
     }
-
     if (_matchAvailable != 0) {
       bflush = _trTally(0, _window[_strStart - 1] & 0xff);
       _matchAvailable = 0;
     }
     _flushBlockOnly(flush == FINISH);
-
     return flush == FINISH ? FINISH_DONE : BLOCK_DONE;
   }
 
@@ -1110,86 +969,70 @@ class Deflate {
     int match; // matched string
     int len; // length of current match
     var best_len = _prevLength; // best match length so far
-    var limit = _strStart > (_windowSize - MIN_LOOKAHEAD)
-        ? _strStart - (_windowSize - MIN_LOOKAHEAD)
-        : 0;
+    final limit = _strStart > (_windowSize - MIN_LOOKAHEAD) ? _strStart - (_windowSize - MIN_LOOKAHEAD) : 0;
     var nice_match = _config.niceLength;
-
     // Stop when cur_match becomes <= limit. To simplify the code,
     // we prevent matches with the string of window index 0.
-
-    var wmask = _windowMask;
-
-    var strend = _strStart + MAX_MATCH;
+    final wmask = _windowMask;
+    final strend = _strStart + MAX_MATCH;
     var scan_end1 = _window[scan + best_len - 1];
     var scan_end = _window[scan + best_len];
-
     // The code is optimized for HASH_BITS >= 8 and MAX_MATCH-2 multiple of 16.
     // It is easy to get rid of this optimization if necessary.
-
     // Do not waste too much time if we already have a good match:
     if (_prevLength >= _config.goodLength) {
       chain_length >>= 2;
     }
-
     // Do not look for matches beyond the end of the input. This is necessary
     // to make deflate deterministic.
     if (nice_match > _lookAhead) {
       nice_match = _lookAhead;
     }
-
     do {
       match = cur_match;
-
       // Skip to next match if the match length cannot increase
       // or if the match length is less than 2:
-      if (_window[match + best_len] != scan_end ||
+      if (!(_window[match + best_len] != scan_end ||
           _window[match + best_len - 1] != scan_end1 ||
           _window[match] != _window[scan] ||
-          _window[++match] != _window[scan + 1]) {
-        continue;
-      }
-
-      // The check at best_len-1 can be removed because it will be made
-      // again later. (This heuristic is not always a win.)
-      // It is not necessary to compare scan[2] and match[2] since they
-      // are always equal when the other bytes match, given that
-      // the hash keys are equal and that HASH_BITS >= 8.
-      scan += 2;
-      match++;
-
-      // We check for insufficient lookahead only every 8th comparison;
-      // the 256th check will be made at strstart+258.
-      do {} while (_window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          _window[++scan] == _window[++match] &&
-          scan < strend);
-
-      len = MAX_MATCH - (strend - scan);
-      scan = strend - MAX_MATCH;
-
-      if (len > best_len) {
-        _matchStart = cur_match;
-        best_len = len;
-        if (len >= nice_match) {
-          break;
+          _window[++match] != _window[scan + 1])) {
+        // The check at best_len-1 can be removed because it will be made
+        // again later. (This heuristic is not always a win.)
+        // It is not necessary to compare scan[2] and match[2] since they
+        // are always equal when the other bytes match, given that
+        // the hash keys are equal and that HASH_BITS >= 8.
+        scan += 2;
+        match++;
+        // We check for insufficient lookahead only every 8th comparison;
+        // the 256th check will be made at strstart+258.
+        do {} while (_window[++scan] == _window[++match] &&
+            _window[++scan] == _window[++match] &&
+            _window[++scan] == _window[++match] &&
+            _window[++scan] == _window[++match] &&
+            _window[++scan] == _window[++match] &&
+            _window[++scan] == _window[++match] &&
+            _window[++scan] == _window[++match] &&
+            _window[++scan] == _window[++match] &&
+            scan < strend);
+        len = MAX_MATCH - (strend - scan);
+        scan = strend - MAX_MATCH;
+        if (len > best_len) {
+          _matchStart = cur_match;
+          best_len = len;
+          if (len >= nice_match) {
+            break;
+          }
+          scan_end1 = _window[scan + best_len - 1];
+          scan_end = _window[scan + best_len];
         }
-        scan_end1 = _window[scan + best_len - 1];
-        scan_end = _window[scan + best_len];
       }
-    } while ((cur_match = (_prev[cur_match & wmask] & 0xffff)) > limit &&
-        --chain_length != 0);
-
+      // ignore: parameter_assignments
+    } while ((cur_match = _prev[cur_match & wmask] & 0xffff) > limit && --chain_length != 0);
     if (best_len <= _lookAhead) {
       return best_len;
+    } else {
+      return _lookAhead;
     }
-
-    return _lookAhead;
   }
 
   /// Read a buffer from the current input stream, update the adler32
@@ -1198,26 +1041,26 @@ class Deflate {
   /// allocating a large strm->next_in buffer and copying from it.
   /// (See also flush_pending()).
   int total = 0;
+
   int _readBuf(Uint8List buf, int start, int size) {
     if (size == 0 || _input.isEOS) {
       return 0;
+    } else {
+      final data = _input.readBytes(size);
+      var len = data.length;
+      if (len == 0) {
+        return 0;
+      } else {
+        final bytes = data.toUint8List();
+        if (len > bytes.length) {
+          len = bytes.length;
+        }
+        buf.setRange(start, start + len, bytes);
+        total += len;
+        crc32 = getCrc32(bytes, crc32);
+        return len;
+      }
     }
-
-    final data = _input.readBytes(size);
-    var len = data.length;
-    if (len == 0) {
-      return 0;
-    }
-
-    final bytes = data.toUint8List();
-    if (len > bytes.length) {
-      len = bytes.length;
-    }
-    buf.setRange(start, start + len, bytes);
-    total += len;
-    crc32 = getCrc32(bytes, crc32);
-
-    return len;
   }
 
   /// Flush as much pending output as possible. All deflate() output goes
@@ -1225,8 +1068,8 @@ class Deflate {
   /// to avoid allocating a large strm->next_out buffer and copying into it.
   void _flushPending() {
     final len = _pending;
+    // ignore: avoid_dynamic_calls
     _output.writeBytes(_pendingBuffer, len);
-
     _pendingOut += len;
     _pending -= len;
     if (_pending == 0) {
@@ -1238,39 +1081,36 @@ class Deflate {
     switch (level) {
       //                             good  lazy  nice  chain
       case 0:
-        return _DeflaterConfig(0, 0, 0, 0, STORED);
+        return const _DeflaterConfig(0, 0, 0, 0, STORED);
       case 1:
-        return _DeflaterConfig(4, 4, 8, 4, FAST);
+        return const _DeflaterConfig(4, 4, 8, 4, FAST);
       case 2:
-        return _DeflaterConfig(4, 5, 16, 8, FAST);
+        return const _DeflaterConfig(4, 5, 16, 8, FAST);
       case 3:
-        return _DeflaterConfig(4, 6, 32, 32, FAST);
-
+        return const _DeflaterConfig(4, 6, 32, 32, FAST);
       case 4:
-        return _DeflaterConfig(4, 4, 16, 16, SLOW);
+        return const _DeflaterConfig(4, 4, 16, 16, SLOW);
       case 5:
-        return _DeflaterConfig(8, 16, 32, 32, SLOW);
+        return const _DeflaterConfig(8, 16, 32, 32, SLOW);
       case 6:
-        return _DeflaterConfig(8, 16, 128, 128, SLOW);
+        return const _DeflaterConfig(8, 16, 128, 128, SLOW);
       case 7:
-        return _DeflaterConfig(8, 32, 128, 256, SLOW);
+        return const _DeflaterConfig(8, 32, 128, 256, SLOW);
       case 8:
-        return _DeflaterConfig(32, 128, 258, 1024, SLOW);
+        return const _DeflaterConfig(32, 128, 258, 1024, SLOW);
       case 9:
-        return _DeflaterConfig(32, 258, 258, 4096, SLOW);
+        return const _DeflaterConfig(32, 258, 258, 4096, SLOW);
     }
     // Should not happen: Level has been checked before.
-    throw ArchiveException('Invalid Deflate parameter');
+    throw const ArchiveException('Invalid Deflate parameter');
   }
 
   static const int MAX_MEM_LEVEL = 9;
-
   static const int Z_DEFAULT_COMPRESSION = -1;
 
   /// 32K LZ77 window
   static const int MAX_WBITS = 15;
   static const int DEF_MEM_LEVEL = 8;
-
   static const int STORED = 0;
   static const int FAST = 1;
   static const int SLOW = 2;
@@ -1287,11 +1127,9 @@ class Deflate {
 
   /// finish done, accept no more input or output
   static const int FINISH_DONE = 3;
-
   static const int Z_FILTERED = 1;
   static const int Z_HUFFMAN_ONLY = 2;
   static const int Z_DEFAULT_STRATEGY = 0;
-
   static const int Z_OK = 0;
   static const int Z_STREAM_END = 1;
   static const int Z_NEED_DICT = 2;
@@ -1301,14 +1139,12 @@ class Deflate {
   static const int Z_MEM_ERROR = -4;
   static const int Z_BUF_ERROR = -5;
   static const int Z_VERSION_ERROR = -6;
-
   static const int INIT_STATE = 42;
   static const int BUSY_STATE = 113;
   static const int FINISH_STATE = 666;
 
   /// The deflate compression method
   static const int Z_DEFLATED = 8;
-
   static const int STORED_BLOCK = 0;
   static const int STATIC_TREES = 1;
   static const int DYN_TREES = 2;
@@ -1317,7 +1153,6 @@ class Deflate {
   static const int Z_BINARY = 0;
   static const int Z_ASCII = 1;
   static const int Z_UNKNOWN = 2;
-
   static const int BUF_SIZE = 8 * 2;
 
   /// repeat previous bit length 3-6 times (2 bits of repeat count)
@@ -1328,24 +1163,19 @@ class Deflate {
 
   /// repeat a zero length 11-138 times  (7 bits of repeat count)
   static const int REPZ_11_138 = 18;
-
   static const int MIN_MATCH = 3;
   static const int MAX_MATCH = 258;
-  static const int MIN_LOOKAHEAD = (MAX_MATCH + MIN_MATCH + 1);
-
+  static const int MIN_LOOKAHEAD = MAX_MATCH + MIN_MATCH + 1;
   static const int MAX_BITS = 15;
   static const int D_CODES = 30;
   static const int BL_CODES = 19;
   static const int LENGTH_CODES = 29;
   static const int LITERALS = 256;
-  static const int L_CODES = (LITERALS + 1 + LENGTH_CODES);
-  static const int HEAP_SIZE = (2 * L_CODES + 1);
-
+  static const int L_CODES = LITERALS + 1 + LENGTH_CODES;
+  static const int HEAP_SIZE = 2 * L_CODES + 1;
   static const int END_BLOCK = 256;
-
   InputStreamBase _input;
   final dynamic _output;
-
   int? _status;
 
   /// output still pending
@@ -1480,6 +1310,7 @@ class Deflate {
 
   /// element of largest frequency
   late int _heapMax;
+
   // The sons of heap[n] are heap[2*n] and heap[2*n+1]. heap[0] is not used.
   // The same heap array is used to build all trees.
 
@@ -1541,171 +1372,62 @@ class Deflate {
 
 class _DeflaterConfig {
   /// Use a faster search when the previous match is longer than this
-  int goodLength;
+  final int goodLength;
 
   /// Attempt to find a better match only when the current match is strictly
   /// smaller than this value. This mechanism is used only for compression
   /// levels >= 4.
-  int maxLazy;
+  final int maxLazy;
 
   /// Stop searching when current match exceeds this
-  int niceLength;
+  final int niceLength;
 
   /// To speed up deflation, hash chains are never searched beyond this
   /// length. A higher limit improves compression ratio but degrades the speed.
-  int maxChain;
+  final int maxChain;
 
   /// STORED, FAST, or SLOW
-  int function;
+  final int function;
 
-  _DeflaterConfig(this.goodLength, this.maxLazy, this.niceLength, this.maxChain,
-      this.function);
+  const _DeflaterConfig(this.goodLength, this.maxLazy, this.niceLength, this.maxChain, this.function);
 }
 
 class _HuffmanTree {
   static const int MAX_BITS = 15;
-  //static const int BL_CODES = 19;
-  //static const int D_CODES = 30;
+
+  // static const int BL_CODES = 19;
+  // static const int D_CODES = 30;
   static const int LITERALS = 256;
   static const int LENGTH_CODES = 29;
-  static const int L_CODES = (LITERALS + 1 + LENGTH_CODES);
-  static const int HEAP_SIZE = (2 * L_CODES + 1);
+  static const int L_CODES = LITERALS + 1 + LENGTH_CODES;
+  static const int HEAP_SIZE = 2 * L_CODES + 1;
 
   /// Bit length codes must not exceed MAX_BL_BITS bits
-  //static const int MAX_BL_BITS = 7;
-
+  // static const int MAX_BL_BITS = 7;
   /// end of block literal code
-  //static const int END_BLOCK = 256;
-
+  // static const int END_BLOCK = 256;
   /// repeat previous bit length 3-6 times (2 bits of repeat count)
-  //static const int REP_3_6 = 16;
-
+  // static const int REP_3_6 = 16;
   /// repeat a zero length 3-10 times  (3 bits of repeat count)
-  //static const int REPZ_3_10 = 17;
-
+  // static const int REPZ_3_10 = 17;
   /// repeat a zero length 11-138 times  (7 bits of repeat count)
-  //static const int REPZ_11_138 = 18;
-
+  // static const int REPZ_11_138 = 18;
   /// extra bits for each length code
-  static const List<int> EXTRA_L_BITS = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-    1,
-    1,
-    1,
-    2,
-    2,
-    2,
-    2,
-    3,
-    3,
-    3,
-    3,
-    4,
-    4,
-    4,
-    4,
-    5,
-    5,
-    5,
-    5,
-    0
-  ];
+  static const List<int> EXTRA_L_BITS = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
 
   /// extra bits for each distance code
-  static const List<int> EXTRA_D_BITS = [
-    0,
-    0,
-    0,
-    0,
-    1,
-    1,
-    2,
-    2,
-    3,
-    3,
-    4,
-    4,
-    5,
-    5,
-    6,
-    6,
-    7,
-    7,
-    8,
-    8,
-    9,
-    9,
-    10,
-    10,
-    11,
-    11,
-    12,
-    12,
-    13,
-    13
-  ];
+  static const List<int> EXTRA_D_BITS = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
 
   /// extra bits for each bit length code
-  static const List<int> EXTRA_BL_BITS = [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    2,
-    3,
-    7
-  ];
-
-  static const List<int> BL_ORDER = [
-    16,
-    17,
-    18,
-    0,
-    8,
-    7,
-    9,
-    6,
-    10,
-    5,
-    11,
-    4,
-    12,
-    3,
-    13,
-    2,
-    14,
-    1,
-    15
-  ];
+  static const List<int> EXTRA_BL_BITS = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 7];
+  static const List<int> BL_ORDER = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
 
   /// The lengths of the bit length codes are sent in order of decreasing
   /// probability, to avoid transmitting the lengths for unused bit
   /// length codes.
-  //static const int BUF_SIZE = 8 * 2;
-
+  // static const int BUF_SIZE = 8 * 2;
   /// see definition of array dist_code below
-  //static const int DIST_CODE_LEN = 512;
-
+  // static const int DIST_CODE_LEN = 512;
   static const List<int> _DIST_CODE = [
     0,
     1,
@@ -2220,7 +1942,6 @@ class _HuffmanTree {
     29,
     29
   ];
-
   static const List<int> LENGTH_CODE = [
     0,
     1,
@@ -2479,7 +2200,6 @@ class _HuffmanTree {
     27,
     28
   ];
-
   static const List<int> BASE_LENGTH = [
     0,
     1,
@@ -2511,7 +2231,6 @@ class _HuffmanTree {
     224,
     0
   ];
-
   static const List<int> BASE_DIST = [
     0,
     1,
@@ -2574,15 +2293,12 @@ class _HuffmanTree {
     int xbits; // extra bits
     int f; // frequency
     var overflow = 0; // number of elements with bit length too large
-
     for (bits = 0; bits <= MAX_BITS; bits++) {
       s._bitLengthCount[bits] = 0;
     }
-
     // In a first pass, compute the optimal bit lengths (which may
     // overflow in the case of the bit length tree).
     tree[s._heap[s._heapMax] * 2 + 1] = 0; // root of the heap
-
     for (h = s._heapMax + 1; h < HEAP_SIZE; h++) {
       n = s._heap[h];
       bits = tree[tree[n * 2 + 1] * 2 + 1] + 1;
@@ -2592,55 +2308,51 @@ class _HuffmanTree {
       }
       tree[n * 2 + 1] = bits;
       // We overwrite tree[n*2+1] which is no longer needed
-
-      if (n > maxCode) {
-        continue; // not a leaf node
-      }
-
-      s._bitLengthCount[bits]++;
-      xbits = 0;
-      if (n >= base_Renamed) {
-        xbits = extra[n - base_Renamed];
-      }
-      f = tree[n * 2];
-      s._optimalLen += f * (bits + xbits);
-      if (stree != null) {
-        s._staticLen += f * (stree[n * 2 + 1] + xbits);
+      if (n <= maxCode) {
+        s._bitLengthCount[bits]++;
+        xbits = 0;
+        if (n >= base_Renamed) {
+          xbits = extra[n - base_Renamed];
+        }
+        f = tree[n * 2];
+        s._optimalLen += f * (bits + xbits);
+        if (stree != null) {
+          s._staticLen += f * (stree[n * 2 + 1] + xbits);
+        }
+      } else {
+        // not a leaf node
       }
     }
     if (overflow == 0) {
       return;
-    }
-
-    // This happens for example on obj2 and pic of the Calgary corpus
-    // Find the first bit length which could increase:
-    do {
-      bits = max_length - 1;
-      while (s._bitLengthCount[bits] == 0) {
-        bits--;
-      }
-      s._bitLengthCount[bits]--; // move one leaf down the tree
-      // move one overflow item as its brother
-      s._bitLengthCount[bits + 1] = (s._bitLengthCount[bits + 1] + 2);
-      s._bitLengthCount[max_length]--;
-      // The brother of the overflow item also moves one step up,
-      // but this does not affect bl_count[max_length]
-      overflow -= 2;
-    } while (overflow > 0);
-
-    for (bits = max_length; bits != 0; bits--) {
-      n = s._bitLengthCount[bits];
-      while (n != 0) {
-        m = s._heap[--h];
-        if (m > maxCode) {
-          continue;
+    } else {
+      // This happens for example on obj2 and pic of the Calgary corpus
+      // Find the first bit length which could increase:
+      do {
+        bits = max_length - 1;
+        while (s._bitLengthCount[bits] == 0) {
+          bits--;
         }
-        if (tree[m * 2 + 1] != bits) {
-          s._optimalLen =
-              (s._optimalLen + (bits - tree[m * 2 + 1]) * tree[m * 2]);
-          tree[m * 2 + 1] = bits;
+        s._bitLengthCount[bits]--; // move one leaf down the tree
+        // move one overflow item as its brother
+        s._bitLengthCount[bits + 1] = s._bitLengthCount[bits + 1] + 2;
+        s._bitLengthCount[max_length]--;
+        // The brother of the overflow item also moves one step up,
+        // but this does not affect bl_count[max_length]
+        overflow -= 2;
+      } while (overflow > 0);
+      for (bits = max_length; bits != 0; bits--) {
+        n = s._bitLengthCount[bits];
+        while (n != 0) {
+          m = s._heap[--h];
+          if (m <= maxCode) {
+            if (tree[m * 2 + 1] != bits) {
+              s._optimalLen = s._optimalLen + (bits - tree[m * 2 + 1]) * tree[m * 2];
+              tree[m * 2 + 1] = bits;
+            }
+            n--;
+          }
         }
-        n--;
       }
     }
   }
@@ -2658,13 +2370,11 @@ class _HuffmanTree {
     int n, m; // iterate over heap elements
     var max_code = -1; // largest code with non zero frequency
     int node; // node being created
-
     // Construct the initial heap, with least frequent element in
     // heap[1]. The sons of heap[n] are heap[2*n] and heap[2*n+1].
     // heap[0] is not used.
     s._heapLen = 0;
     s._heapMax = HEAP_SIZE;
-
     for (n = 0; n < elems; n++) {
       if (tree[n * 2] != 0) {
         s._heap[++s._heapLen] = max_code = n;
@@ -2673,13 +2383,12 @@ class _HuffmanTree {
         tree[n * 2 + 1] = 0;
       }
     }
-
     // The pkzip format requires that at least one distance code exists,
     // and that at least one bit should be sent even if there is only one
     // possible code. So to avoid special checks later on we force at least
     // two codes of non zero frequency.
     while (s._heapLen < 2) {
-      node = s._heap[++s._heapLen] = (max_code < 2 ? ++max_code : 0);
+      node = s._heap[++s._heapLen] = max_code < 2 ? ++max_code : 0;
       tree[node * 2] = 1;
       s._depth[node] = 0;
       s._optimalLen--;
@@ -2689,17 +2398,13 @@ class _HuffmanTree {
       // node is 0 or 1 so it does not have extra bits
     }
     maxCode = max_code;
-
     // The elements heap[heap_len/2+1 .. heap_len] are leaves of the tree,
     // establish sub-heaps of increasing lengths:
-
     for (n = s._heapLen ~/ 2; n >= 1; n--) {
       s._pqdownheap(tree, n);
     }
-
     // Construct the Huffman tree by repeatedly combining the least two
     // frequent nodes.
-
     node = elems; // next node of the tree
     do {
       // n = node of least frequency
@@ -2707,27 +2412,20 @@ class _HuffmanTree {
       s._heap[1] = s._heap[s._heapLen--];
       s._pqdownheap(tree, 1);
       m = s._heap[1]; // m = node of next least frequency
-
       s._heap[--s._heapMax] = n; // keep the nodes sorted by frequency
       s._heap[--s._heapMax] = m;
-
       // Create a node father of n and m
-      tree[node * 2] = (tree[n * 2] + tree[m * 2]);
-      s._depth[node] = (_max(s._depth[n], s._depth[m]) + 1);
+      tree[node * 2] = tree[n * 2] + tree[m * 2];
+      s._depth[node] = _max(s._depth[n], s._depth[m]) + 1;
       tree[n * 2 + 1] = tree[m * 2 + 1] = node;
-
       // and insert the node in the heap
       s._heap[1] = node++;
       s._pqdownheap(tree, 1);
     } while (s._heapLen >= 2);
-
     s._heap[--s._heapMax] = s._heap[1];
-
     // At this point, the fields freq and dad are set. We can now
     // generate the bit lengths.
-
     _genBitlen(s);
-
     // The field len is now set, we can generate the bit codes
     _genCodes(tree, max_code, s._bitLengthCount);
   }
@@ -2745,21 +2443,17 @@ class _HuffmanTree {
     var code = 0; // running code value
     int bits; // bit index
     int n; // code index
-
     // The distribution counts are first used to generate the code values
     // without bit reversal.
     for (bits = 1; bits <= MAX_BITS; bits++) {
-      next_code[bits] = code = ((code + bl_count[bits - 1]) << 1);
+      next_code[bits] = code = (code + bl_count[bits - 1]) << 1;
     }
-
     for (n = 0; n <= max_code; n++) {
       final len = tree[n * 2 + 1];
-      if (len == 0) {
-        continue;
+      if (len != 0) {
+        // Now reverse the bits
+        tree[n * 2] = _reverseBits(next_code[len]++, len);
       }
-
-      // Now reverse the bits
-      tree[n * 2] = (_reverseBits(next_code[len]++, len));
     }
   }
 
@@ -2770,8 +2464,10 @@ class _HuffmanTree {
     var res = 0;
     do {
       res |= code & 1;
+      // ignore: parameter_assignments
       code = _rshift(code, 1);
       res <<= 1;
+      // ignore: parameter_assignments
     } while (--len > 0);
     return _rshift(res, 1);
   }
@@ -2780,24 +2476,20 @@ class _HuffmanTree {
   /// must not have side effects. _dist_code[256] and _dist_code[257] are never
   /// used.
   static int _dCode(int dist) {
-    return ((dist) < 256
-        ? _DIST_CODE[dist]
-        : _DIST_CODE[256 + (_rshift((dist), 7))]);
+    return dist < 256 ? _DIST_CODE[dist] : _DIST_CODE[256 + (_rshift(dist, 7))];
   }
 }
 
 class _StaticTree {
   static const int MAX_BITS = 15;
-
   static const int BL_CODES = 19;
   static const int D_CODES = 30;
   static const int LITERALS = 256;
   static const int LENGTH_CODES = 29;
-  static const int L_CODES = (LITERALS + 1 + LENGTH_CODES);
+  static const int L_CODES = LITERALS + 1 + LENGTH_CODES;
 
   // Bit length codes must not exceed MAX_BL_BITS bits
   static const int MAX_BL_BITS = 7;
-
   static const List<int> STATIC_LTREE = [
     12,
     8,
@@ -3376,7 +3068,6 @@ class _StaticTree {
     227,
     8
   ];
-
   static const List<int> STATIC_DTREE = [
     0,
     5,
@@ -3439,15 +3130,9 @@ class _StaticTree {
     23,
     5
   ];
-
-  static final staticLDesc = _StaticTree(
-      STATIC_LTREE, _HuffmanTree.EXTRA_L_BITS, LITERALS + 1, L_CODES, MAX_BITS);
-
-  static final staticDDesc = _StaticTree(
-      STATIC_DTREE, _HuffmanTree.EXTRA_D_BITS, 0, D_CODES, MAX_BITS);
-
-  static final staticBlDesc =
-      _StaticTree(null, _HuffmanTree.EXTRA_BL_BITS, 0, BL_CODES, MAX_BL_BITS);
+  static final staticLDesc = _StaticTree(STATIC_LTREE, _HuffmanTree.EXTRA_L_BITS, LITERALS + 1, L_CODES, MAX_BITS);
+  static final staticDDesc = _StaticTree(STATIC_DTREE, _HuffmanTree.EXTRA_D_BITS, 0, D_CODES, MAX_BITS);
+  static final staticBlDesc = _StaticTree(null, _HuffmanTree.EXTRA_BL_BITS, 0, BL_CODES, MAX_BL_BITS);
 
   List<int>? staticTree; // static tree or null
   List<int> extraBits; // extra bits for each code or null
@@ -3455,8 +3140,13 @@ class _StaticTree {
   int numElements; // max number of elements in the tree
   int maxLength; // max bit length for the codes
 
-  _StaticTree(this.staticTree, this.extraBits, this.extraBase, this.numElements,
-      this.maxLength);
+  _StaticTree(
+    this.staticTree,
+    this.extraBits,
+    this.extraBase,
+    this.numElements,
+    this.maxLength,
+  );
 }
 
 /// Performs an unsigned bitwise right shift with the specified number

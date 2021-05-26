@@ -5,8 +5,8 @@ import '../archive/archive_file.dart';
 import '../util/crc32.dart';
 import '../util/input_stream.dart';
 import '../util/output_stream.dart';
-import 'zip_file.dart';
 import '../zlib/deflate.dart';
+import 'zip_file.dart';
 
 class _ZipFileData {
   late String name;
@@ -37,7 +37,6 @@ class _ZipEncoderData {
     final t1 = ((dateTime.minute & 0x7) << 5) | (dateTime.second ~/ 2);
     final t2 = (dateTime.hour << 3) | (dateTime.minute >> 3);
     time = ((t2 & 0xff) << 8) | (t1 & 0xff);
-
     final d1 = ((dateTime.month & 0x7) << 5) | dateTime.day;
     final d2 = (((dateTime.year - 1980) & 0x7f) << 1) | (dateTime.month >> 3);
     date = ((d2 & 0xff) << 8) | (d1 & 0xff);
@@ -51,17 +50,14 @@ class ZipEncoder {
 
   List<int>? encode(Archive archive, {int level = Deflate.BEST_SPEED, OutputStreamBase? output, DateTime? modified}) {
     output ??= OutputStream();
-
     startEncode(output, level: level, modified: modified);
-    for (final file in archive.files) {
-      addFile(file);
-    }
+    archive.files.forEach(addFile);
     endEncode(comment: archive.comment);
     if (output is OutputStream) {
       return output.getBytes();
+    } else {
+      return null;
     }
-
-    return null;
   }
 
   void startEncode(OutputStreamBase? output, {int? level = Deflate.BEST_SPEED, DateTime? modified}) {
@@ -71,38 +67,35 @@ class ZipEncoder {
 
   int getFileCrc32(ArchiveFile file) {
     if (file.content is InputStreamBase) {
-      var s = file.content as InputStreamBase;
+      final s = file.content as InputStreamBase;
       s.reset();
-      var bytes = s.toUint8List();
+      final bytes = s.toUint8List();
       final crc32 = getCrc32(bytes);
+      // ignore: avoid_dynamic_calls
       file.content.reset();
       return crc32;
+    } else {
+      return getCrc32(file.content as List<int>);
     }
-    return getCrc32(file.content as List<int>);
   }
 
   void addFile(ArchiveFile file) {
     final fileData = _ZipFileData();
     _data.files.add(fileData);
-
     fileData.name = file.name;
     fileData.time = _data.time;
     fileData.date = _data.date;
     fileData.mode = file.mode;
     fileData.isFile = file.isFile;
-
     InputStreamBase? compressedData;
     int crc32;
-
     // If the user want's to store the file without compressing it,
     // make sure it's decompressed.
     if (!file.compress) {
       if (file.isCompressed) {
         file.decompress();
       }
-
       compressedData = (file.content is InputStreamBase) ? file.content as InputStreamBase : InputStream(file.content);
-
       if (file.crc32 != null) {
         crc32 = file.crc32!;
       } else {
@@ -112,7 +105,6 @@ class ZipEncoder {
       // If the file is already compressed, no sense in uncompressing it and
       // compressing it again, just pass along the already compressed data.
       compressedData = file.rawContent;
-
       if (file.crc32 != null) {
         crc32 = file.crc32!;
       } else {
@@ -121,7 +113,6 @@ class ZipEncoder {
     } else {
       // Otherwise we need to compress it now.
       crc32 = getFileCrc32(file);
-
       dynamic bytes = file.content;
       if (bytes is InputStreamBase) {
         bytes = bytes.toUint8List();
@@ -129,14 +120,10 @@ class ZipEncoder {
       bytes = Deflate(bytes as List<int>, level: _data.level).getBytes();
       compressedData = InputStream(bytes);
     }
-
-    var filename = Utf8Encoder().convert(file.name);
-    var comment = file.comment != null ? Utf8Encoder().convert(file.comment!) : null;
-
+    final filename = const Utf8Encoder().convert(file.name);
+    final comment = file.comment != null ? const Utf8Encoder().convert(file.comment!) : null;
     _data.localFileSize += 30 + filename.length + compressedData!.length;
-
     _data.centralDirectorySize += 46 + filename.length + (comment != null ? comment.length : 0);
-
     fileData.crc32 = crc32;
     fileData.compressedSize = compressedData.length;
     fileData.compressedData = compressedData;
@@ -144,9 +131,7 @@ class ZipEncoder {
     fileData.compress = file.compress;
     fileData.comment = file.comment;
     fileData.position = _output!.length;
-
     _writeFile(fileData, _output!);
-
     fileData.compressedData = null;
   }
 
@@ -156,12 +141,10 @@ class ZipEncoder {
   }
 
   void _writeFile(_ZipFileData fileData, OutputStreamBase output) {
-    var filename = fileData.name;
-
+    final filename = fileData.name;
     output.writeUint32(ZipFile.SIGNATURE);
-
-    final version = VERSION;
-    final flags = 0;
+    const version = VERSION;
+    const flags = 0;
     final compressionMethod = fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
     final lastModFileTime = fileData.time;
     final lastModFileDate = fileData.date;
@@ -169,11 +152,8 @@ class ZipEncoder {
     final compressedSize = fileData.compressedSize;
     final uncompressedSize = fileData.uncompressedSize;
     final extra = <int>[];
-
     final compressedData = fileData.compressedData!;
-
-    var filenameUtf8 = Utf8Encoder().convert(filename);
-
+    final filenameUtf8 = const Utf8Encoder().convert(filename);
     output.writeUint16(version);
     output.writeUint16(flags);
     output.writeUint16(compressionMethod);
@@ -186,30 +166,28 @@ class ZipEncoder {
     output.writeUint16(extra.length);
     output.writeBytes(filenameUtf8);
     output.writeBytes(extra);
-
     output.writeInputStream(compressedData);
   }
 
   void _writeCentralDirectory(List<_ZipFileData> files, String? comment, OutputStreamBase output) {
+    // ignore: parameter_assignments
     comment ??= '';
-    var commentUtf8 = Utf8Encoder().convert(comment);
-
+    final commentUtf8 = const Utf8Encoder().convert(comment);
     final centralDirPosition = output.length;
-    final version = VERSION;
-    final os = OS_MSDOS;
-
-    for (var fileData in files) {
-      final versionMadeBy = (os << 8) | version;
-      final versionNeededToExtract = version;
-      final generalPurposeBitFlag = 0;
+    const version = VERSION;
+    const os = OS_MSDOS;
+    for (final fileData in files) {
+      const versionMadeBy = (os << 8) | version;
+      const versionNeededToExtract = version;
+      const generalPurposeBitFlag = 0;
       final compressionMethod = fileData.compress ? ZipFile.DEFLATE : ZipFile.STORE;
       final lastModifiedFileTime = fileData.time;
       final lastModifiedFileDate = fileData.date;
       final crc32 = fileData.crc32;
       final compressedSize = fileData.compressedSize;
       final uncompressedSize = fileData.uncompressedSize;
-      final diskNumberStart = 0;
-      final internalFileAttributes = 0;
+      const diskNumberStart = 0;
+      const internalFileAttributes = 0;
       final externalFileAttributes = fileData.mode << 16;
       /*if (!fileData.isFile) {
         externalFileAttributes |= 0x4000; // ?
@@ -217,10 +195,8 @@ class ZipEncoder {
       final localHeaderOffset = fileData.position;
       final extraField = <int>[];
       final fileComment = fileData.comment ?? '';
-
-      final filenameUtf8 = Utf8Encoder().convert(fileData.name);
-      final fileCommentUtf8 = Utf8Encoder().convert(fileComment);
-
+      final filenameUtf8 = const Utf8Encoder().convert(fileData.name);
+      final fileCommentUtf8 = const Utf8Encoder().convert(fileComment);
       output.writeUint32(ZipFileHeader.SIGNATURE);
       output.writeUint16(versionMadeBy);
       output.writeUint16(versionNeededToExtract);
@@ -242,14 +218,12 @@ class ZipEncoder {
       output.writeBytes(extraField);
       output.writeBytes(fileCommentUtf8);
     }
-
-    final numberOfThisDisk = 0;
-    final diskWithTheStartOfTheCentralDirectory = 0;
+    const numberOfThisDisk = 0;
+    const diskWithTheStartOfTheCentralDirectory = 0;
     final totalCentralDirectoryEntriesOnThisDisk = files.length;
     final totalCentralDirectoryEntries = files.length;
     final centralDirectorySize = output.length - centralDirPosition;
     final centralDirectoryOffset = centralDirPosition;
-
     output.writeUint32(ZipDirectory.SIGNATURE);
     output.writeUint16(numberOfThisDisk);
     output.writeUint16(diskWithTheStartOfTheCentralDirectory);
@@ -262,7 +236,6 @@ class ZipEncoder {
   }
 
   static const int VERSION = 20;
-
   // enum OS
   static const int OS_MSDOS = 0;
   static const int OS_UNIX = 3;

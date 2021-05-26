@@ -7,23 +7,53 @@ import '../io/output_file_stream.dart';
 import '../io/tar_file_encoder.dart';
 import 'tar_decoder.dart';
 
+void tarCommand(List<String> arguments) {
+  // tar --list <file>
+  // tar --extract <file> <dest>
+  // tar --create <source>
+  const usage = 'usage: tar [--list|--extract|--create] <file> [<dest>|<source>]';
+  if (arguments.isEmpty) {
+    fail(usage);
+  } else {
+    final command = arguments[0];
+    if (command == '--list') {
+      if (arguments.length < 2) {
+        fail(usage);
+      } else {
+        listFiles(arguments[1]);
+      }
+    } else if (command == '--extract') {
+      if (arguments.length < 3) {
+        fail(usage);
+      } else {
+        extractFiles(arguments[1], arguments[2]);
+      }
+    } else if (command == '--create') {
+      if (arguments.length < 2) {
+        fail(usage);
+      } else {
+        createTarFile(arguments[1]);
+      }
+    } else {
+      fail(usage);
+    }
+  }
+}
+
 /// Print the entries in the given tar file.
 void listFiles(String path) {
   final file = File(path);
   if (!file.existsSync()) fail('${path} does not exist');
-
   List<int> data = file.readAsBytesSync();
   if (path.endsWith('tar.gz') || path.endsWith('tgz')) {
     data = GZipDecoder().decodeBytes(data);
   } else if (path.endsWith('tar.bz2') || path.endsWith('tbz')) {
     data = BZip2Decoder().decodeBytes(data);
   }
-
   final tarArchive = TarDecoder();
   // Tell the decoder not to store the actual file data since we don't need
   // it.
   tarArchive.decodeBytes(data, storeData: false);
-
   print('${tarArchive.files.length} file(s)');
   tarArchive.files.forEach((f) => print('  ${f}'));
 }
@@ -32,7 +62,6 @@ void listFiles(String path) {
 Directory extractFiles(String inputPath, String outputPath) {
   Directory? temp_dir;
   var tar_path = inputPath;
-
   if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
     temp_dir = Directory.systemTemp.createTempSync('dart_archive');
     tar_path = '${temp_dir.path}${Platform.pathSeparator}temp.tar';
@@ -42,31 +71,24 @@ Directory extractFiles(String inputPath, String outputPath) {
     input.close();
     output.close();
   }
-
   final outDir = Directory(outputPath);
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
   }
-
   final input = InputFileStream(tar_path);
   final tarArchive = TarDecoder()..decodeBuffer(input);
-
   for (final file in tarArchive.files) {
-    if (!file.isFile) {
-      continue;
+    if (file.isFile) {
+      final f = File('${outputPath}${Platform.pathSeparator}${file.filename}');
+      f.parent.createSync(recursive: true);
+      f.writeAsBytesSync(file.contentBytes);
+      print('  extracted ${file.filename}');
     }
-    final f = File('${outputPath}${Platform.pathSeparator}${file.filename}');
-    f.parent.createSync(recursive: true);
-    f.writeAsBytesSync(file.contentBytes);
-    print('  extracted ${file.filename}');
   }
-
   input.close();
-
   if (temp_dir != null) {
     temp_dir.delete(recursive: true);
   }
-
   /*File inputFile = File(inputPath);
   if (!inputFile.existsSync()) fail('${inputPath} does not exist');
 
@@ -97,7 +119,6 @@ Directory extractFiles(String inputPath, String outputPath) {
     f.writeAsBytesSync(file.content);
     print('  extracted ${file.filename}');
   };*/
-
   return outDir;
 }
 

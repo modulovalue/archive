@@ -11,7 +11,12 @@ class MemPtr {
   int _length;
   int byteOrder;
 
-  MemPtr(List<int> other, [this.offset = 0, this._length = -1, this.byteOrder = LITTLE_ENDIAN]) : buffer = other {
+  MemPtr(
+    this.buffer, [
+    this.offset = 0,
+    this._length = -1,
+    this.byteOrder = LITTLE_ENDIAN,
+  ]) {
     if (_length < 0 || _length > buffer.length) {
       _length = buffer.length;
     }
@@ -36,7 +41,7 @@ class MemPtr {
   int operator [](int index) => buffer[offset + index];
 
   /// Set a byte in the buffer relative to the current read position.
-  operator []=(int index, int value) => buffer[offset + index] = value;
+  void operator []=(int index, int value) => buffer[offset + index] = value;
 
   /// The number of bytes remaining in the buffer.
   int get length => _length - offset;
@@ -59,9 +64,7 @@ class MemPtr {
   }
 
   /// Read a single byte.
-  int readByte() {
-    return buffer[offset++];
-  }
+  int readByte() => buffer[offset++];
 
   /// Read [count] bytes from the buffer.
   List<int> readBytes(int count) {
@@ -70,11 +73,11 @@ class MemPtr {
       final bytes = Uint8List.view(b.buffer, b.offsetInBytes + offset, count);
       offset += bytes.length;
       return bytes;
+    } else {
+      final bytes = buffer.sublist(offset, offset + count);
+      offset += bytes.length;
+      return bytes;
     }
-
-    final bytes = buffer.sublist(offset, offset + count);
-    offset += bytes.length;
-    return bytes;
   }
 
   /// Read a null-terminated string, or if [len] is provided, that number of
@@ -89,10 +92,10 @@ class MemPtr {
         }
         codes.add(c);
       }
-      throw ArchiveException('EOF reached without finding string terminator');
+      throw const ArchiveException('EOF reached without finding string terminator');
+    } else {
+      return String.fromCharCodes(readBytes(len));
     }
-
-    return String.fromCharCodes(readBytes(len));
   }
 
   /// Read a 16-bit word from the stream.
@@ -101,8 +104,9 @@ class MemPtr {
     final b2 = buffer[offset++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
       return (b1 << 8) | b2;
+    } else {
+      return (b2 << 8) | b1;
     }
-    return (b2 << 8) | b1;
   }
 
   /// Read a 24-bit word from the stream.
@@ -112,8 +116,9 @@ class MemPtr {
     final b3 = buffer[offset++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
       return b3 | (b2 << 8) | (b1 << 16);
+    } else {
+      return b1 | (b2 << 8) | (b3 << 16);
     }
-    return b1 | (b2 << 8) | (b3 << 16);
   }
 
   /// Read a 32-bit word from the stream.
@@ -124,8 +129,9 @@ class MemPtr {
     final b4 = buffer[offset++] & 0xff;
     if (byteOrder == BIG_ENDIAN) {
       return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4;
+    } else {
+      return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
     }
-    return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1;
   }
 
   /// This assumes buffer is a Typed
@@ -133,8 +139,9 @@ class MemPtr {
     if (buffer is TypedData) {
       final b = buffer as TypedData;
       return Uint8List.view(b.buffer, b.offsetInBytes + this.offset + offset);
+    } else {
+      return null;
     }
-    return null;
   }
 
   /// This assumes buffer is a Typed
@@ -142,7 +149,8 @@ class MemPtr {
     if (buffer is TypedData) {
       final b = buffer as TypedData;
       return Uint32List.view(b.buffer, b.offsetInBytes + this.offset + offset);
+    } else {
+      return null;
     }
-    return null;
   }
 }

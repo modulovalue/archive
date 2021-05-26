@@ -26,9 +26,7 @@ class ArchiveFile {
   /// format such as zip.
   bool compress = true;
 
-  int get unixPermissions {
-    return mode & 0x1FF;
-  }
+  int get unixPermissions => mode & 0x1FF;
 
   ArchiveFile(this.name, this.size, dynamic content, [this._compressionType = STORE]) {
     name = name.replaceAll('\\', '/');

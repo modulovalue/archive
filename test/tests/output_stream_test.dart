@@ -8,7 +8,6 @@ void main() {
     final bytes = out.getBytes();
     expect(bytes.length, equals(0));
   });
-
   test('writeByte', () {
     final out = OutputStream();
     for (var i = 0; i < 10000; ++i) {
@@ -23,12 +22,10 @@ void main() {
 
   test('writeUint16', () {
     final out = OutputStream();
-
     const LEN = 0xffff;
     for (var i = 0; i < LEN; ++i) {
       out.writeUint16(i);
     }
-
     final bytes = out.getBytes();
     expect(bytes.length, equals(LEN * 2));
     final input = InputStream(bytes);
@@ -40,15 +37,12 @@ void main() {
 
   test('writeUint32', () {
     final out = OutputStream();
-
     const LEN = 0xffff;
     for (var i = 0; i < LEN; ++i) {
       out.writeUint32(0xffff + i);
     }
-
-    var bytes = out.getBytes();
+    final bytes = out.getBytes();
     expect(bytes.length, equals(LEN * 4));
-
     final input = InputStream(bytes);
     for (var i = 0; i < LEN; ++i) {
       final x = input.readUint32();
