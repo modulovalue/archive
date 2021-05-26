@@ -1,4 +1,5 @@
-import 'package:archive/archive.dart';
+import 'package:archive2/util/input_stream.dart';
+import 'package:archive2/util/output_stream.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -30,7 +31,6 @@ void main() {
 
     final bytes = out.getBytes();
     expect(bytes.length, equals(LEN * 2));
-
     final input = InputStream(bytes);
     for (var i = 0; i < LEN; ++i) {
       final x = input.readUint16();

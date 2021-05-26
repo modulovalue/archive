@@ -1,11 +1,17 @@
 import 'dart:io';
-import 'package:archive/archive.dart';
+
+import 'package:archive2/archive/archive.dart';
+import 'package:archive2/archive/archive_file.dart';
+import 'package:archive2/gzip/gzip_decoder.dart';
+import 'package:archive2/tar/tar_decoder.dart';
+import 'package:archive2/tar/tar_encoder.dart';
+import 'package:archive2/tar/tar_file.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
 
-var tarTests = [
+final tarTests = [
   {
     'file': 'res/tar/gnu.tar',
     'headers': [
@@ -126,7 +132,7 @@ var tarTests = [
   {
     'file': 'res/tar/nil-uid.tar',
     'headers': [
-      {
+      <String, dynamic>{
         'Name': 'P1050238.JPG.log',
         'Mode': int.parse('0664', radix: 8),
         'Uid': 0,
@@ -151,7 +157,8 @@ void main() {
   test('tar invalid archive', () {
     try {
       TarDecoder().decodeBytes([1, 2, 3]);
-      assert(false);
+      assert(false, "must fail");
+    // ignore: avoid_catches_without_on_clauses
     } catch (e) {
       // pass
     }
@@ -169,6 +176,7 @@ void main() {
     expect(archive.numberOfFiles(), equals(1));
     var x = '';
     for (var i = 0; i < 150; ++i) {
+      // ignore: use_string_buffers
       x += 'x';
     }
     x += '.txt';
@@ -176,8 +184,8 @@ void main() {
   });
 
   test('symlink', () {
-    var file = File(p.join(testDirPath, 'res/tar/symlink_tar.tar'));
-    List<int> bytes = file.readAsBytesSync();
+    final file = File(p.join(testDirPath, 'res/tar/symlink_tar.tar'));
+    final List<int> bytes = file.readAsBytesSync();
     final archive = tar.decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(4));
     expect(archive.files[1].isSymbolicLink, equals(true));
@@ -185,8 +193,8 @@ void main() {
   });
 
   test('decode test2.tar', () {
-    var file = File(p.join(testDirPath, 'res/test2.tar'));
-    List<int> bytes = file.readAsBytesSync();
+    final file = File(p.join(testDirPath, 'res/test2.tar'));
+    final List<int> bytes = file.readAsBytesSync();
     final archive = tar.decodeBytes(bytes, verify: true);
 
     final expected_files = <File>[];
@@ -196,26 +204,23 @@ void main() {
   });
 
   test('decode test2.tar.gz', () {
-    var file = File(p.join(testDirPath, 'res/test2.tar.gz'));
+    final file = File(p.join(testDirPath, 'res/test2.tar.gz'));
     List<int> bytes = file.readAsBytesSync();
-
     bytes = GZipDecoder().decodeBytes(bytes, verify: true);
     final archive = tar.decodeBytes(bytes, verify: true);
-
     final expected_files = <File>[];
     ListDir(expected_files, Directory(p.join(testDirPath, 'res/test2')));
-
     expect(archive.length, equals(4));
   });
 
   test('decode/encode', () {
     final a_bytes = a_txt.codeUnits;
 
-    var b = File(p.join(testDirPath, 'res/cat.jpg'));
-    List<int> b_bytes = b.readAsBytesSync();
+    final b = File(p.join(testDirPath, 'res/cat.jpg'));
+    final List<int> b_bytes = b.readAsBytesSync();
 
-    var file = File(p.join(testDirPath, 'res/test.tar'));
-    List<int> bytes = file.readAsBytesSync();
+    final file = File(p.join(testDirPath, 'res/test.tar'));
+    final List<int> bytes = file.readAsBytesSync();
 
     final archive = tar.decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(2));
@@ -250,17 +255,18 @@ void main() {
     compare_bytes(t_bytes, b_bytes);
   });
 
-  for (Map<String, dynamic> t in tarTests) {
+  for (final Map<String, dynamic> t in tarTests) {
     test('untar ${t['file']}', () {
-      var file = File(p.join(testDirPath, t['file'] as String));
-      var bytes = file.readAsBytesSync();
-
-      /*Archive archive =*/ tar.decodeBytes(bytes, verify: true);
+      final file = File(p.join(testDirPath, t['file'] as String));
+      final bytes = file.readAsBytesSync();
+      /*Archive archive =*/
+      tar.decodeBytes(bytes, verify: true);
+      // ignore: avoid_dynamic_calls
       expect(tar.files.length, equals(t['headers'].length));
-
       for (var i = 0; i < tar.files.length; ++i) {
         final file = tar.files[i];
-        var hdr = t['headers'][i] as Map<String, dynamic>;
+        // ignore: avoid_dynamic_calls
+        final hdr = t['headers'][i] as Map<String, dynamic>;
 
         if (hdr.containsKey('Name')) {
           expect(file.filename, equals(hdr['Name']));

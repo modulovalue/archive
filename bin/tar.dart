@@ -2,7 +2,7 @@
 // @dart=2.9
 library archive.tar;
 
-import 'package:archive/src/tar/tar_command.dart';
+import 'package:archive2/tar/tar_command.dart';
 
 // tar --list <file>
 // tar --extract <file> <dest>
@@ -13,7 +13,6 @@ void main(List<String> arguments) {
   if (arguments.isEmpty) {
     fail(usage);
   }
-
   final command = arguments[0];
   if (command == '--list') {
     if (arguments.length < 2) {

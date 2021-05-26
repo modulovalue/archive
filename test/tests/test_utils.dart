@@ -6,9 +6,7 @@ import 'dart:mirrors';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-final String testDirPath = p.dirname(p.fromUri(currentMirrorSystem()
-    .findLibrary(const Symbol('archive.test.test_utils'))
-    .uri));
+final String testDirPath = p.dirname(p.fromUri(currentMirrorSystem().findLibrary(const Symbol('archive.test.test_utils')).uri));
 
 void compare_bytes(List<int> a, List<int> b) {
   expect(a.length, equals(b.length));

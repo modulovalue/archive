@@ -1,6 +1,8 @@
 import 'dart:io';
 
-import 'package:archive/archive.dart';
+import 'package:archive2/archive/archive.dart';
+import 'package:archive2/gzip/gzip_decoder.dart';
+import 'package:archive2/tar/tar_decoder.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -50,9 +52,7 @@ Future<void> downloadUrls(HttpClient? client, List<String> urls) async {
     var download = HttpClient()
         .getUrl(Uri.parse(url))
         .then(((HttpClientRequest request) => request.close()))
-        .then<dynamic>(((HttpClientResponse response) => response
-            .cast<List<int>>()
-            .pipe(File(path + '/out/' + filename).openWrite())));
+        .then<dynamic>(((HttpClientResponse response) => response.cast<List<int>>().pipe(File(path + '/out/' + filename).openWrite())));
 
     downloads.add(download);
   }
@@ -72,22 +72,16 @@ void extractDart(List<String> urls) {
 
     final outputPath = path + '\\out\\' + filename + '.out';
     print('$inputPath : $outputPath');
-
     print('EXTRACTING $inputPath');
-
     final fp = File(path + '/out/' + filename);
     final data = fp.readAsBytesSync();
-
     final tarArchive = TarDecoder();
     tarArchive.decodeBytes(GZipDecoder().decodeBytes(data));
-
     print('EXTRACTING $filename');
-
     final outDir = Directory(outputPath);
     if (!outDir.existsSync()) {
       outDir.createSync(recursive: true);
     }
-
     for (final file in tarArchive.files) {
       if (!file.isFile) {
         continue;

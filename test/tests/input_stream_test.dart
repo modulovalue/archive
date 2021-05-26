@@ -1,4 +1,5 @@
-import 'package:archive/archive.dart';
+import 'package:archive2/util/byte_order.dart';
+import 'package:archive2/util/input_stream.dart';
 import 'package:test/test.dart';
 
 void main() {

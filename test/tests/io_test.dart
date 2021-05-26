@@ -1,6 +1,16 @@
 import 'dart:io';
 
-import 'package:archive/archive_io.dart';
+import 'package:archive2/gzip/gzip_decoder.dart';
+import 'package:archive2/gzip/gzip_encoder.dart';
+import 'package:archive2/io/create_archive_from_directory.dart';
+import 'package:archive2/io/input_file_stream.dart';
+import 'package:archive2/io/output_file_stream.dart';
+import 'package:archive2/io/tar_file_encoder.dart';
+import 'package:archive2/io/zip_file_encoder.dart';
+import 'package:archive2/tar/tar_decoder.dart';
+import 'package:archive2/util/input_stream.dart';
+import 'package:archive2/zip/zip_decoder.dart';
+import 'package:archive2/zip/zip_encoder.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -20,8 +30,7 @@ void main() {
     expect(b2, equals(c2));
 
     // Test rewind across buffer boundary.
-    var input =
-        InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
 
     for (var i = 0; i < 9; ++i) {
       input.readByte();
@@ -60,8 +69,7 @@ void main() {
     input.close();
 
     input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
-    final input2 =
-        InputStream(File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync());
+    final input2 = InputStream(File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync());
 
     var same = true;
     while (!input.isEOS && same) {
@@ -178,7 +186,6 @@ void main() {
   test('stream gzip decode', () {
     var input = InputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
     var output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
-
     GZipDecoder().decodeStream(input, output);
   });
 

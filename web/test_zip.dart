@@ -1,6 +1,7 @@
 import 'dart:html';
 import 'dart:typed_data';
-import 'package:archive/archive.dart';
+
+import 'package:archive2/zip/zip_decoder.dart';
 
 void main() {
   // An img on the html page is used to establish the path to the images
