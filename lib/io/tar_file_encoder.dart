@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
-import '../archive/archive_file.dart';
-import '../gzip/gzip_encoder.dart';
+import '../archive/impl/file.dart';
+import '../gzip/impl/gzip_encoder.dart';
 import '../tar/tar_encoder.dart';
 import 'input_file_stream.dart';
 import 'output_file_stream.dart';
@@ -35,7 +35,7 @@ class TarFileEncoder {
     if (compression == GZIP) {
       final input = InputFileStream(tar_path);
       final output = OutputFileStream(tgz_path);
-      GZipEncoder().encode(input, output: output);
+      const GZipEncoderImpl().encode(input, output: output);
       input.close();
       File(input.path).deleteSync();
     }
@@ -63,7 +63,7 @@ class TarFileEncoder {
 
   void addFile(File file, [String? filename]) {
     final file_stream = InputFileStream.file(file);
-    final f = ArchiveFile.stream(filename ?? file.path, file.lengthSync(), file_stream);
+    final f = ArchiveFileImpl.stream(filename ?? file.path, file.lengthSync(), file_stream);
     f.lastModTime = file.lastModifiedSync().millisecondsSinceEpoch;
     f.mode = file.statSync().mode;
     _encoder.add(f);

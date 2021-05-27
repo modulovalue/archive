@@ -1,3 +1,3 @@
-import 'package:archive2/tar/tar_command.dart';
+import 'package:archive2/tar/impl/command.dart';
 
-void main(List<String> args) => tarCommand(args);
+void main(List<String> args) => const TarCommandImpl().tarCommand(args);

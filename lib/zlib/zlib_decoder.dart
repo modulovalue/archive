@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import '../util/input_stream.dart';
+import '../base/interface/input_stream.dart';
 import 'zlib_decoder_stub.dart' //
     if (dart.library.io) '_zlib_decoder_io.dart'
     if (dart.library.js) '_zlib_decoder_js.dart';

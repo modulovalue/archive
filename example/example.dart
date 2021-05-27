@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:archive2/bzip2/bzip2_encoder.dart';
+import 'package:archive2/bzip2/impl/bzip2_encoder.dart';
 import 'package:archive2/io/zip_file_encoder.dart';
 import 'package:archive2/tar/tar_encoder.dart';
 import 'package:archive2/zip/zip_decoder.dart';
@@ -10,7 +10,7 @@ void main() {
   // Decode the Zip file
   final archive = ZipDecoder().decodeBytes(bytes);
   // Extract the contents of the Zip archive to disk.
-  for (final file in archive) {
+  for (final file in archive.iterable) {
     final filename = file.name;
     if (file.isFile) {
       final data = file.content as List<int>;
@@ -23,7 +23,7 @@ void main() {
   }
   // Encode the archive as a BZip2 compressed Tar file.
   final tar_data = TarEncoder().encode(archive);
-  final tar_bz2 = BZip2Encoder().encode(tar_data);
+  final tar_bz2 = BZip2EncoderImpl().encode(tar_data);
   // Write the compressed tar file to disk.
   final fp = File('test.tbz');
   fp.writeAsBytesSync(tar_bz2);

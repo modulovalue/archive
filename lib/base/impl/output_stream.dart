@@ -1,37 +1,19 @@
 import 'dart:typed_data';
 
-import 'byte_order.dart';
+import '../interface/input_stream.dart';
+import '../interface/output_stream.dart';
+import 'byte_order_constants.dart';
 import 'input_stream.dart';
 
-abstract class OutputStreamBase {
-  int get length;
-
-  /// Write a byte to the output stream.
-  void writeByte(int value);
-
-  /// Write a set of bytes to the output stream.
-  void writeBytes(List<int> bytes, [int? len]);
-
-  /// Write an InputStream to the output stream.
-  void writeInputStream(InputStreamBase bytes);
-
-  /// Write a 16-bit word to the output stream.
-  void writeUint16(int value);
-
-  /// Write a 32-bit word to the end of the buffer.
-  void writeUint32(int value);
-}
-
-class OutputStream extends OutputStreamBase {
+class OutputStreamImpl extends OutputStream {
   @override
   int length;
   final int byteOrder;
 
   /// Create a byte buffer for writing.
-  OutputStream({int? size = _BLOCK_SIZE, this.byteOrder = LITTLE_ENDIAN})
+  OutputStreamImpl({int? size = _BLOCK_SIZE, this.byteOrder = LITTLE_ENDIAN})
       : _buffer = Uint8List(size ?? _BLOCK_SIZE),
         length = 0;
-
 
   /// Get the resulting bytes from the buffer.
   Uint8List getBytes() => Uint8List.view(_buffer.buffer, 0, length);
@@ -66,11 +48,11 @@ class OutputStream extends OutputStreamBase {
   }
 
   @override
-  void writeInputStream(InputStreamBase stream) {
+  void writeInputStream(InputStream stream) {
     while (length + stream.length > _buffer.length) {
       _expandBuffer((length + stream.length) - _buffer.length);
     }
-    if (stream is InputStream) {
+    if (stream is InputStreamImpl) {
       _buffer.setRange(length, length + stream.length, stream.buffer, stream.offset);
     } else {
       final bytes = stream.toUint8List();

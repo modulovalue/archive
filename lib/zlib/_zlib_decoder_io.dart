@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import '../util/input_stream.dart';
+import '../base/interface/input_stream.dart';
 import 'zlib_decoder_base.dart';
 
 const platformZLibDecoder = _ZLibDecoder();

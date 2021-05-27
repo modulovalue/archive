@@ -1,6 +1,7 @@
-import '../util/archive_exception.dart';
-import '../util/crc32.dart';
-import '../util/input_stream.dart';
+import '../base/impl/crc32.dart';
+import '../base/impl/exception.dart';
+import '../base/impl/input_stream.dart';
+import '../base/interface/input_stream.dart';
 import '../zlib/inflate.dart';
 
 class ZipFile {
@@ -22,11 +23,11 @@ class ZipFile {
   List<int> extraField = []; // 2 bytes length, n-bytes data
   ZipFileHeader? header;
 
-  ZipFile([InputStream? input, this.header, String? password]) {
+  ZipFile([InputStreamImpl? input, this.header, String? password]) {
     if (input != null) {
       signature = input.readUint32();
       if (signature != SIGNATURE) {
-        throw const ArchiveException('Invalid Zip Signature');
+        throw const ArchiveExceptionImpl('Invalid Zip Signature');
       } else {
         version = input.readUint16();
         flags = input.readUint16();
@@ -69,7 +70,7 @@ class ZipFile {
   /// crc32 checksum for the decompressed data and verify it with the value
   /// stored in the zip.
   bool verifyCrc32() {
-    _computedCrc32 ??= getCrc32(content);
+    _computedCrc32 ??= const Crc32Impl().getCrc32(content);
     return _computedCrc32 == crc32;
   }
 
@@ -110,10 +111,10 @@ class ZipFile {
   }
 
   void _updateKeys(int c) {
-    _keys[0] = CRC32(_keys[0], c);
+    _keys[0] = const Crc32Impl().CRC32(_keys[0], c);
     _keys[1] += _keys[0] & 0xff;
     _keys[1] = _keys[1] * 134775813 + 1;
-    _keys[2] = CRC32(_keys[2], _keys[1] >> 24);
+    _keys[2] = const Crc32Impl().CRC32(_keys[2], _keys[1] >> 24);
   }
 
   int _decryptByte() {
@@ -123,7 +124,7 @@ class ZipFile {
 
   void _decodeByte(int c) => _updateKeys(c ^ _decryptByte());
 
-  InputStream _decodeRawContent(InputStream input) {
+  InputStreamImpl _decodeRawContent(InputStream input) {
     for (var i = 0; i < 12; ++i) {
       _decodeByte(_rawContent.readByte());
     }
@@ -133,7 +134,7 @@ class ZipFile {
       _updateKeys(temp);
       bytes[i] = temp;
     }
-    return InputStream(bytes);
+    return InputStreamImpl(bytes);
   }
 
   /// Content of the file. If compressionMethod is not STORE, then it is
@@ -165,7 +166,7 @@ class ZipFileHeader {
   String fileComment = '';
   ZipFile? file;
 
-  ZipFileHeader([InputStream? input, InputStream? bytes, String? password]) {
+  ZipFileHeader([InputStream? input, InputStreamImpl? bytes, String? password]) {
     if (input != null) {
       versionMadeBy = input.readUint16();
       versionNeededToExtract = input.readUint16();
@@ -251,7 +252,7 @@ class ZipDirectory {
 
   ZipDirectory();
 
-  ZipDirectory.read(InputStream input, {String? password}) {
+  ZipDirectory.read(InputStreamImpl input, {String? password}) {
     filePosition = _findSignature(input);
     input.offset = filePosition;
     final signature = input.readUint32(); // ignore: unused_local_variable
@@ -276,7 +277,7 @@ class ZipDirectory {
     }
   }
 
-  void _readZip64Data(InputStream input) {
+  void _readZip64Data(InputStreamImpl input) {
     final ip = input.offset;
     // Check for zip64 data.
     // Zip64 end of central directory locator
@@ -346,7 +347,7 @@ class ZipDirectory {
     }
   }
 
-  int _findSignature(InputStream input) {
+  int _findSignature(InputStreamImpl input) {
     final pos = input.offset;
     final length = input.length;
     // The directory and archive contents are written to the end of the zip
@@ -360,6 +361,6 @@ class ZipDirectory {
         return ip;
       }
     }
-    throw const ArchiveException('Could not find End of Central Directory Record');
+    throw const ArchiveExceptionImpl('Could not find End of Central Directory Record');
   }
 }

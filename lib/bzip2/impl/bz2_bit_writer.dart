@@ -1,24 +1,35 @@
-import '../util/output_stream.dart';
+import '../../base/interface/output_stream.dart';
+import '../interface/bz2_bit_writer.dart';
 
-class Bz2BitWriter {
-  OutputStream output;
+class Bz2BitWriterImpl implements Bz2BitWriter {
+  @override
+  final OutputStream output;
 
-  Bz2BitWriter(this.output);
+  int _bitBuffer = 0;
+  int _bitPos = 8;
 
+  Bz2BitWriterImpl(this.output);
+
+  @override
   void writeByte(int byte) => writeBits(8, byte);
 
+  @override
   void writeBytes(List<int> bytes) {
     for (var i = 0; i < bytes.length; ++i) {
       writeBits(8, bytes[i]);
     }
   }
 
+  @override
   void writeUint16(int value) => writeBits(16, value);
 
+  @override
   void writeUint24(int value) => writeBits(24, value);
 
+  @override
   void writeUint32(int value) => writeBits(32, value);
 
+  @override
   void writeBits(int numBits, int value) {
     // TODO optimize
     if (_bitPos == 8 && numBits == 8) {
@@ -57,14 +68,10 @@ class Bz2BitWriter {
     }
   }
 
-  /// Write any remaining bits from the buffer to the output, padding the
-  /// remainder of the byte with 0's.
+  @override
   void flush() {
     if (_bitPos != 8) {
       writeBits(_bitPos, 0);
     }
   }
-
-  int _bitBuffer = 0;
-  int _bitPos = 8;
 }

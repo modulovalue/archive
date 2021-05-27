@@ -1,66 +1,19 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'archive_exception.dart';
-import 'byte_order.dart';
-
-abstract class InputStreamBase {
-  ///  The current read position relative to the start of the buffer.
-  int get position;
-
-  /// How many bytes are left in the stream.
-  int get length;
-
-  /// Is the current position at the end of the stream?
-  bool get isEOS;
-
-  /// Reset to the beginning of the stream.
-  void reset();
-
-  /// Rewind the read head of the stream by the given number of bytes.
-  void rewind([int length = 1]);
-
-  /// Move the read position by [count] bytes.
-  void skip(int length);
-
-  /// Read [count] bytes from an [offset] of the current read position, without
-  /// moving the read position.
-  InputStream peekBytes(int count, [int offset = 0]);
-
-  /// Read a single byte.
-  int readByte();
-
-  /// Read [count] bytes from the stream.
-  InputStream readBytes(int count);
-
-  /// Read a null-terminated string, or if [len] is provided, that number of
-  /// bytes returned as a string.
-  String readString({int? size, bool utf8 = true});
-
-  /// Read a 16-bit word from the stream.
-  int readUint16();
-
-  /// Read a 24-bit word from the stream.
-  int readUint24();
-
-  /// Read a 32-bit word from the stream.
-  int readUint32();
-
-  /// Read a 64-bit word form the stream.
-  int readUint64();
-
-  Uint8List toUint8List();
-}
+import '../interface/input_stream.dart';
+import 'byte_order_constants.dart';
+import 'exception.dart';
 
 /// A buffer that can be read as a stream of bytes
-class InputStream extends InputStreamBase {
+class InputStreamImpl implements InputStream {
   List<int> buffer;
   int offset;
   int start;
   int byteOrder;
 
   /// Create a InputStream for reading from a List<int>
-  InputStream(dynamic data, {this.byteOrder = LITTLE_ENDIAN, this.start = 0, int? length})
+  InputStreamImpl(dynamic data, {this.byteOrder = LITTLE_ENDIAN, this.start = 0, int? length})
       : buffer = data is TypedData
             ? Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes)
             : data is List<int>
@@ -71,7 +24,7 @@ class InputStream extends InputStreamBase {
   }
 
   /// Create a copy of [other].
-  InputStream.from(InputStream other)
+  InputStreamImpl.from(InputStreamImpl other)
       : buffer = other.buffer,
         offset = other.offset,
         start = other.start,
@@ -111,7 +64,7 @@ class InputStream extends InputStreamBase {
   /// to the start of the buffer.  If [position] is not specified, the current
   /// read position is used. If [length] is not specified, the remainder of this
   /// stream is used.
-  InputStream subset([int? position, int? length]) {
+  InputStreamImpl subset([int? position, int? length]) {
     if (position == null) {
       position = offset;
     } else {
@@ -122,7 +75,7 @@ class InputStream extends InputStreamBase {
       // ignore: parameter_assignments
       length = _length - (position - start);
     }
-    return InputStream(buffer, byteOrder: byteOrder, start: position, length: length);
+    return InputStreamImpl(buffer, byteOrder: byteOrder, start: position, length: length);
   }
 
   /// Returns the position of the given [value] within the buffer, starting
@@ -142,9 +95,11 @@ class InputStream extends InputStreamBase {
   /// Read [count] bytes from an [offset] of the current read position, without
   /// moving the read position.
   @override
-  InputStream peekBytes(int count, [int offset = 0]) {
-    return subset((this.offset - start) + offset, count);
-  }
+  InputStreamImpl peekBytes(
+    int count, [
+    int offset = 0,
+  ]) =>
+      subset((this.offset - start) + offset, count);
 
   /// Move the read position by [count] bytes.
   @override
@@ -156,7 +111,7 @@ class InputStream extends InputStreamBase {
 
   /// Read [count] bytes from the stream.
   @override
-  InputStream readBytes(int count) {
+  InputStreamImpl readBytes(int count) {
     final bytes = subset(offset - start, count);
     offset += bytes.length;
     return bytes;
@@ -178,7 +133,7 @@ class InputStream extends InputStreamBase {
           }
           codes.add(c);
         }
-        throw const ArchiveException('EOF reached without finding string terminator');
+        throw const ArchiveExceptionImpl('EOF reached without finding string terminator');
       }
     } else {
       final s = readBytes(size);

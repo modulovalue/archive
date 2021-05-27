@@ -1,55 +1,65 @@
-import '../util/input_stream.dart';
-import '../zlib/inflate.dart';
+import '../../base/impl/input_stream.dart';
+import '../../zlib/inflate.dart';
+import '../interface/file.dart';
 
 /// A file contained in an Archive.
-class ArchiveFile {
+class ArchiveFileImpl implements ArchiveFile {
   static const int STORE = 0;
   static const int DEFLATE = 8;
 
+  @override
   String name;
-
-  /// The uncompressed size of the file
+  @override
   int size = 0;
+  @override
   int mode = 420; // octal 644 (-rw-r--r--)
+  @override
   int ownerId = 0;
+  @override
   int groupId = 0;
+  @override
   int lastModTime = 0;
+  @override
   bool isFile = true;
+  @override
   bool isSymbolicLink = false;
+  @override
   String nameOfLinkedFile = '';
-
-  /// The crc32 checksum of the uncompressed content.
+  int? _compressionType;
+  InputStreamImpl? _rawContent;
+  dynamic _content;
+  @override
   int? crc32;
+  @override
   String? comment;
-
-  /// If false, this file will not be compressed when encoded to an archive
-  /// format such as zip.
+  @override
   bool compress = true;
 
-  int get unixPermissions => mode & 0x1FF;
-
-  ArchiveFile(this.name, this.size, dynamic content, [this._compressionType = STORE]) {
+  ArchiveFileImpl(this.name, this.size, dynamic content, [this._compressionType = STORE]) {
     name = name.replaceAll('\\', '/');
     if (content is List<int>) {
       _content = content;
-      _rawContent = InputStream(_content);
-    } else if (content is InputStream) {
-      _rawContent = InputStream.from(content);
+      _rawContent = InputStreamImpl(_content);
+    } else if (content is InputStreamImpl) {
+      _rawContent = InputStreamImpl.from(content);
     }
   }
 
-  ArchiveFile.noCompress(this.name, this.size, dynamic content) {
+  @override
+  int get unixPermissions => mode & 0x1FF;
+
+  ArchiveFileImpl.noCompress(this.name, this.size, dynamic content) {
     name = name.replaceAll('\\', '/');
     compress = false;
     if (content is List<int>) {
       _content = content;
-      _rawContent = InputStream(_content);
-    } else if (content is InputStream) {
-      _rawContent = InputStream.from(content);
+      _rawContent = InputStreamImpl(_content);
+    } else if (content is InputStreamImpl) {
+      _rawContent = InputStreamImpl.from(content);
     }
   }
 
-  ArchiveFile.stream(this.name, this.size, dynamic content_stream) {
+  ArchiveFileImpl.stream(this.name, this.size, dynamic content_stream) {
     // Paths can only have / path separators
     name = name.replaceAll('\\', '/');
     compress = true;
@@ -58,7 +68,7 @@ class ArchiveFile {
     _compressionType = STORE;
   }
 
-  /// Get the content of the file, decompressing on demand as necessary.
+  @override
   dynamic get content {
     if (_content == null) {
       decompress();
@@ -66,7 +76,7 @@ class ArchiveFile {
     return _content;
   }
 
-  /// If the file data is compressed, decompress it.
+  @override
   void decompress() {
     if (_content == null && _rawContent != null) {
       if (_compressionType == DEFLATE) {
@@ -78,19 +88,15 @@ class ArchiveFile {
     }
   }
 
-  /// Is the data stored by this file currently compressed?
+  @override
   bool get isCompressed => _compressionType != STORE;
 
-  /// What type of compression is the raw data stored in
+  @override
   int? get compressionType => _compressionType;
 
-  /// Get the content without decompressing it first.
-  InputStream? get rawContent => _rawContent;
+  @override
+  InputStreamImpl? get rawContent => _rawContent;
 
   @override
   String toString() => name;
-
-  int? _compressionType;
-  InputStream? _rawContent;
-  dynamic _content;
 }

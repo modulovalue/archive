@@ -1,47 +1,54 @@
-import '../util/archive_exception.dart';
-import '../util/crc32.dart';
-import '../util/input_stream.dart';
-import '../util/output_stream.dart';
-import '../zlib/inflate.dart';
+import 'dart:typed_data';
+
+import '../../base/impl/crc32.dart';
+import '../../base/impl/exception.dart';
+import '../../base/impl/input_stream.dart';
+import '../../base/interface/input_stream.dart';
+import '../../base/interface/output_stream.dart';
+import '../../zlib/inflate.dart';
+import '../interface/gzip_decoder.dart';
+import 'gzip_constants.dart';
 
 /// Decompress data with the gzip format decoder.
-class GZipDecoder {
-  static const int SIGNATURE = 0x8b1f;
-  static const int DEFLATE = 8;
-  static const int FLAG_TEXT = 0x01;
-  static const int FLAG_HCRC = 0x02;
-  static const int FLAG_EXTRA = 0x04;
-  static const int FLAG_NAME = 0x08;
-  static const int FLAG_COMMENT = 0x10;
+class GZipDecoderImpl implements GZipDecoder {
+  const GZipDecoderImpl();
 
-  List<int> decodeBytes(List<int> data, {bool verify = false}) {
-    return decodeBuffer(InputStream(data), verify: verify);
-  }
+  @override
+  Uint8List decodeBytes(
+    List<int> data, {
+    bool verify = false,
+  }) =>
+      decodeBuffer(InputStreamImpl(data), verify: verify);
 
-  void decodeStream(InputStreamBase input, OutputStreamBase output) {
+  @override
+  void decodeStream(InputStream input, OutputStream output) {
     _readHeader(input);
     Inflate.stream(input, output);
   }
 
-  List<int> decodeBuffer(InputStreamBase input, {bool verify = false}) {
+  @override
+  Uint8List decodeBuffer(
+    InputStream input, {
+    bool verify = false,
+  }) {
     _readHeader(input);
     // Inflate
     final buffer = Inflate.buffer(input).getBytes();
     if (verify) {
       final crc = input.readUint32();
-      final computedCrc = getCrc32(buffer);
+      final computedCrc = const Crc32Impl().getCrc32(buffer);
       if (crc != computedCrc) {
-        throw const ArchiveException('Invalid CRC checksum');
+        throw const ArchiveExceptionImpl('Invalid CRC checksum');
       }
       final size = input.readUint32();
       if (size != buffer.length) {
-        throw const ArchiveException('Size of decompressed file not correct');
+        throw const ArchiveExceptionImpl('Size of decompressed file not correct');
       }
     }
     return buffer;
   }
 
-  void _readHeader(InputStreamBase input) {
+  void _readHeader(InputStream input) {
     // The GZip format has the following structure:
     // Offset   Length   Contents
     // 0      2 bytes  magic header  0x1f, 0x8b (\037 \213)
@@ -83,12 +90,12 @@ class GZipDecoder {
     //        4 bytes  crc32
     //        4 bytes  uncompressed input size modulo 2^32
     final signature = input.readUint16();
-    if (signature != SIGNATURE) {
-      throw const ArchiveException('Invalid GZip Signature');
+    if (signature != GZipConstants.SIGNATURE) {
+      throw const ArchiveExceptionImpl('Invalid GZip Signature');
     }
     final compressionMethod = input.readByte();
-    if (compressionMethod != DEFLATE) {
-      throw const ArchiveException('Invalid GZip Compression Methos');
+    if (compressionMethod != GZipConstants.DEFLATE) {
+      throw const ArchiveExceptionImpl('Invalid GZip Compression Methos');
     }
     final flags = input.readByte();
     /*int fileModTime =*/
@@ -97,18 +104,18 @@ class GZipDecoder {
     input.readByte();
     /*int osType =*/
     input.readByte();
-    if (flags & FLAG_EXTRA != 0) {
+    if (flags & GZipConstants.FLAG_EXTRA != 0) {
       final t = input.readUint16();
       input.readBytes(t);
     }
-    if (flags & FLAG_NAME != 0) {
+    if (flags & GZipConstants.FLAG_NAME != 0) {
       input.readString();
     }
-    if (flags & FLAG_COMMENT != 0) {
+    if (flags & GZipConstants.FLAG_COMMENT != 0) {
       input.readString();
     }
     // just throw away for now
-    if (flags & FLAG_HCRC != 0) {
+    if (flags & GZipConstants.FLAG_HCRC != 0) {
       input.readUint16();
     }
   }

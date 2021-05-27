@@ -1,21 +1,16 @@
 import 'dart:typed_data';
 
-class BZip2 {
+class BZip2Constants {
   static final Uint8List emptyUint8List = UnmodifiableUint8ListView(Uint8List(0));
   static final Uint32List emptyUint32List = UnmodifiableUint32ListView(Uint32List(0));
   static final Int32List emptyInt32List = UnmodifiableInt32ListView(Int32List(0));
 
   static int INITIAL_CRC = 0xffffffff;
 
-  static int updateCrc(
-    int value,
-    int crc,
-  ) =>
+  static int updateCrc(int value, int crc) => //
       ((crc << 8) ^ _BZ2_CRC32_TABLE[(crc >> 24) & 0xff ^ (value & 0xff)]) & 0xffffffff;
 
-  static int finalizeCrc(
-    int crc,
-  ) =>
+  static int finalizeCrc(int crc) => //
       crc ^ 0xffffffff;
 
   static const List<int> BZH_SIGNATURE = [0x42, 0x5a, 0x68];

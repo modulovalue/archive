@@ -1,10 +1,13 @@
 import 'dart:convert';
 
-import '../archive/archive.dart';
-import '../archive/archive_file.dart';
-import '../util/crc32.dart';
-import '../util/input_stream.dart';
-import '../util/output_stream.dart';
+import '../archive/impl/file.dart';
+import '../archive/interface/archive.dart';
+import '../archive/interface/file.dart';
+import '../base/impl/crc32.dart';
+import '../base/impl/input_stream.dart';
+import '../base/impl/output_stream.dart';
+import '../base/interface/input_stream.dart';
+import '../base/interface/output_stream.dart';
 import '../zlib/deflate.dart';
 import 'zip_file.dart';
 
@@ -15,7 +18,7 @@ class _ZipFileData {
   int crc32 = 0;
   int compressedSize = 0;
   int uncompressedSize = 0;
-  InputStreamBase? compressedData;
+  InputStream? compressedData;
   bool compress = true;
   String? comment = '';
   int position = 0;
@@ -46,36 +49,36 @@ class _ZipEncoderData {
 /// Encode an [Archive] object into a Zip formatted buffer.
 class ZipEncoder {
   late _ZipEncoderData _data;
-  OutputStreamBase? _output;
+  OutputStream? _output;
 
-  List<int>? encode(Archive archive, {int level = Deflate.BEST_SPEED, OutputStreamBase? output, DateTime? modified}) {
-    output ??= OutputStream();
+  List<int>? encode(Archive archive, {int level = Deflate.BEST_SPEED, OutputStream? output, DateTime? modified}) {
+    output ??= OutputStreamImpl();
     startEncode(output, level: level, modified: modified);
-    archive.files.forEach(addFile);
+    archive.iterable.forEach(addFile);
     endEncode(comment: archive.comment);
-    if (output is OutputStream) {
+    if (output is OutputStreamImpl) {
       return output.getBytes();
     } else {
       return null;
     }
   }
 
-  void startEncode(OutputStreamBase? output, {int? level = Deflate.BEST_SPEED, DateTime? modified}) {
+  void startEncode(OutputStream? output, {int? level = Deflate.BEST_SPEED, DateTime? modified}) {
     _data = _ZipEncoderData(level, modified);
     _output = output;
   }
 
   int getFileCrc32(ArchiveFile file) {
-    if (file.content is InputStreamBase) {
-      final s = file.content as InputStreamBase;
+    if (file.content is InputStream) {
+      final s = file.content as InputStream;
       s.reset();
       final bytes = s.toUint8List();
-      final crc32 = getCrc32(bytes);
+      final crc32 = const Crc32Impl().getCrc32(bytes);
       // ignore: avoid_dynamic_calls
       file.content.reset();
       return crc32;
     } else {
-      return getCrc32(file.content as List<int>);
+      return const Crc32Impl().getCrc32(file.content as List<int>);
     }
   }
 
@@ -87,7 +90,7 @@ class ZipEncoder {
     fileData.date = _data.date;
     fileData.mode = file.mode;
     fileData.isFile = file.isFile;
-    InputStreamBase? compressedData;
+    InputStream? compressedData;
     int crc32;
     // If the user want's to store the file without compressing it,
     // make sure it's decompressed.
@@ -95,13 +98,13 @@ class ZipEncoder {
       if (file.isCompressed) {
         file.decompress();
       }
-      compressedData = (file.content is InputStreamBase) ? file.content as InputStreamBase : InputStream(file.content);
+      compressedData = (file.content is InputStream) ? file.content as InputStream : InputStreamImpl(file.content);
       if (file.crc32 != null) {
         crc32 = file.crc32!;
       } else {
         crc32 = getFileCrc32(file);
       }
-    } else if (file.isCompressed && file.compressionType == ArchiveFile.DEFLATE) {
+    } else if (file.isCompressed && file.compressionType == ArchiveFileImpl.DEFLATE) {
       // If the file is already compressed, no sense in uncompressing it and
       // compressing it again, just pass along the already compressed data.
       compressedData = file.rawContent;
@@ -114,11 +117,11 @@ class ZipEncoder {
       // Otherwise we need to compress it now.
       crc32 = getFileCrc32(file);
       dynamic bytes = file.content;
-      if (bytes is InputStreamBase) {
+      if (bytes is InputStream) {
         bytes = bytes.toUint8List();
       }
       bytes = Deflate(bytes as List<int>, level: _data.level).getBytes();
-      compressedData = InputStream(bytes);
+      compressedData = InputStreamImpl(bytes);
     }
     final filename = const Utf8Encoder().convert(file.name);
     final comment = file.comment != null ? const Utf8Encoder().convert(file.comment!) : null;
@@ -140,7 +143,7 @@ class ZipEncoder {
     _writeCentralDirectory(_data.files, comment, _output!);
   }
 
-  void _writeFile(_ZipFileData fileData, OutputStreamBase output) {
+  void _writeFile(_ZipFileData fileData, OutputStream output) {
     final filename = fileData.name;
     output.writeUint32(ZipFile.SIGNATURE);
     const version = VERSION;
@@ -169,7 +172,7 @@ class ZipEncoder {
     output.writeInputStream(compressedData);
   }
 
-  void _writeCentralDirectory(List<_ZipFileData> files, String? comment, OutputStreamBase output) {
+  void _writeCentralDirectory(List<_ZipFileData> files, String? comment, OutputStream output) {
     // ignore: parameter_assignments
     comment ??= '';
     final commentUtf8 = const Utf8Encoder().convert(comment);
@@ -236,6 +239,7 @@ class ZipEncoder {
   }
 
   static const int VERSION = 20;
+
   // enum OS
   static const int OS_MSDOS = 0;
   static const int OS_UNIX = 3;

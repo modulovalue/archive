@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:archive2/gzip/gzip_decoder.dart';
+import 'package:archive2/gzip/impl/gzip_decoder.dart';
 import 'package:archive2/io/input_file_stream.dart';
 import 'package:archive2/io/output_file_stream.dart';
-import 'package:archive2/tar/tar_command.dart';
+import 'package:archive2/tar/impl/command.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -12,7 +12,7 @@ import 'test_utils.dart';
 void main() {
   test('bin/tar.dart list', () {
     // Test that 'tar --list' does not throw.
-    listFiles(p.join(testDirPath, 'res/test2.tar.gz'));
+    const TarCommandImpl().listFiles(p.join(testDirPath, 'res/test2.tar.gz'));
   });
   test('tar extract', () {
     final dir = Directory.systemTemp.createTempSync('foo');
@@ -24,7 +24,7 @@ void main() {
         final tar_path = '${temp_dir.path}${Platform.pathSeparator}temp.tar';
         final input = InputFileStream(inputPath);
         final output = OutputFileStream(tar_path);
-        GZipDecoder().decodeStream(input, output);
+        const GZipDecoderImpl().decodeStream(input, output);
         input.close();
         output.close();
         final a_bytes = File(tar_path).readAsBytesSync();
@@ -37,7 +37,7 @@ void main() {
         expect(same, equals(true));
         temp_dir.deleteSync(recursive: true);
       }
-      extractFiles(p.join(testDirPath, 'res/test2.tar.gz'), dir.path);
+      const TarCommandImpl().extractFiles(p.join(testDirPath, 'res/test2.tar.gz'), dir.path);
       expect(dir.listSync(recursive: true).length, 4);
     } finally {
       //dir.deleteSync(recursive: true);
@@ -49,7 +49,7 @@ void main() {
     file.writeAsStringSync('foo bar');
     try {
       // Test that 'tar --create' does not throw.
-      createTarFile(dir.path);
+      const TarCommandImpl().createTarFile(dir.path);
     } finally {
       dir.delete(recursive: true);
     }

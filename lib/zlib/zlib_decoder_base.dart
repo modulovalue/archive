@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import '../util/input_stream.dart';
+import '../base/interface/input_stream.dart';
 
 /// Decompress data with the zlib format decoder.
 abstract class ZLibDecoderBase {

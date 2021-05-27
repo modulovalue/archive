@@ -1,9 +1,10 @@
 import 'dart:typed_data';
 
-import '../util/archive_exception.dart';
-import '../util/crc32.dart';
-import '../util/input_stream.dart';
-import '../util/output_stream.dart';
+import '../base/impl/crc32.dart';
+import '../base/impl/exception.dart';
+import '../base/impl/input_stream.dart';
+import '../base/impl/output_stream.dart';
+import '../base/interface/input_stream.dart';
 
 class Deflate {
   // enum CompressionLevel
@@ -26,13 +27,14 @@ class Deflate {
     int? level = DEFAULT_COMPRESSION,
     int flush = FINISH,
     dynamic output,
-  })  : _input = InputStream(bytes),
-        _output = output ?? OutputStream() {
+  })  : _input = InputStreamImpl(bytes),
+        _output = output ?? OutputStreamImpl() {
     _init(level);
     _deflate(flush);
   }
 
-  Deflate.buffer(this._input, {int? level = DEFAULT_COMPRESSION, int flush = FINISH, dynamic output}) : _output = output ?? OutputStream() {
+  Deflate.buffer(this._input, {int? level = DEFAULT_COMPRESSION, int flush = FINISH, dynamic output})
+      : _output = output ?? OutputStreamImpl() {
     _init(level);
     _deflate(flush);
   }
@@ -59,7 +61,7 @@ class Deflate {
 
   /// Add more data to be deflated.
   void addBytes(List<int> bytes, {int flush = FINISH}) {
-    _input = InputStream(bytes);
+    _input = InputStreamImpl(bytes);
     _deflate(flush);
   }
 
@@ -93,7 +95,7 @@ class Deflate {
         level > 9 ||
         strategy < 0 ||
         strategy > Z_HUFFMAN_ONLY) {
-      throw const ArchiveException('Invalid Deflate parameter');
+      throw const ArchiveExceptionImpl('Invalid Deflate parameter');
     } else {
       _config = _getConfig(level);
       _dynamicLengthTree = Uint16List(HEAP_SIZE * 2);
@@ -132,7 +134,7 @@ class Deflate {
   /// Compress the current input buffer.
   int _deflate(int flush) {
     if (flush > FINISH || flush < 0) {
-      throw const ArchiveException('Invalid Deflate Parameter');
+      throw const ArchiveExceptionImpl('Invalid Deflate Parameter');
     } else {
       _lastFlush = flush;
       // Flush as much pending output as possible
@@ -1057,7 +1059,7 @@ class Deflate {
         }
         buf.setRange(start, start + len, bytes);
         total += len;
-        crc32 = getCrc32(bytes, crc32);
+        crc32 = const Crc32Impl().getCrc32(bytes, crc32);
         return len;
       }
     }
@@ -1102,7 +1104,7 @@ class Deflate {
         return const _DeflaterConfig(32, 258, 258, 4096, SLOW);
     }
     // Should not happen: Level has been checked before.
-    throw const ArchiveException('Invalid Deflate parameter');
+    throw const ArchiveExceptionImpl('Invalid Deflate parameter');
   }
 
   static const int MAX_MEM_LEVEL = 9;
@@ -1174,7 +1176,7 @@ class Deflate {
   static const int L_CODES = LITERALS + 1 + LENGTH_CODES;
   static const int HEAP_SIZE = 2 * L_CODES + 1;
   static const int END_BLOCK = 256;
-  InputStreamBase _input;
+  InputStream _input;
   final dynamic _output;
   int? _status;
 

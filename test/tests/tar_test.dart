@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:archive2/archive/archive.dart';
-import 'package:archive2/archive/archive_file.dart';
-import 'package:archive2/gzip/gzip_decoder.dart';
+import 'package:archive2/archive/impl/archive.dart';
+import 'package:archive2/archive/impl/file.dart';
+import 'package:archive2/gzip/impl/gzip_decoder.dart';
 import 'package:archive2/tar/tar_decoder.dart';
 import 'package:archive2/tar/tar_encoder.dart';
 import 'package:archive2/tar/tar_file.dart';
@@ -157,13 +157,13 @@ void main() {
     try {
       TarDecoder().decodeBytes([1, 2, 3]);
       assert(false, "must fail");
-    // ignore: avoid_catches_without_on_clauses
+      // ignore: avoid_catches_without_on_clauses
     } catch (e) {
       // pass
     }
   });
   test('tar file', () {
-    TarEncoder().encode(Archive()..addFile(ArchiveFile('file.txt', 1, [100])));
+    TarEncoder().encode(ArchiveImpl()..addFile(ArchiveFileImpl('file.txt', 1, [100])));
   });
   test('long file name', () {
     final file = File(p.join(testDirPath, 'res/tar/x.tar'));
@@ -176,15 +176,15 @@ void main() {
       x += 'x';
     }
     x += '.txt';
-    expect(archive.files[0].name, equals(x));
+    expect(archive.first.name, equals(x));
   });
   test('symlink', () {
     final file = File(p.join(testDirPath, 'res/tar/symlink_tar.tar'));
     final List<int> bytes = file.readAsBytesSync();
     final archive = tar.decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(4));
-    expect(archive.files[1].isSymbolicLink, equals(true));
-    expect(archive.files[1].nameOfLinkedFile, equals('b/b.txt'));
+    expect(archive[1].isSymbolicLink, equals(true));
+    expect(archive[1].nameOfLinkedFile, equals('b/b.txt'));
   });
   test('decode test2.tar', () {
     final file = File(p.join(testDirPath, 'res/test2.tar'));
@@ -192,16 +192,16 @@ void main() {
     final archive = tar.decodeBytes(bytes, verify: true);
     final expected_files = <File>[];
     ListDir(expected_files, Directory(p.join(testDirPath, 'res/test2')));
-    expect(archive.length, equals(4));
+    expect(archive.numberOfFiles(), equals(4));
   });
   test('decode test2.tar.gz', () {
     final file = File(p.join(testDirPath, 'res/test2.tar.gz'));
     List<int> bytes = file.readAsBytesSync();
-    bytes = GZipDecoder().decodeBytes(bytes, verify: true);
+    bytes = const GZipDecoderImpl().decodeBytes(bytes, verify: true);
     final archive = tar.decodeBytes(bytes, verify: true);
     final expected_files = <File>[];
     ListDir(expected_files, Directory(p.join(testDirPath, 'res/test2')));
-    expect(archive.length, equals(4));
+    expect(archive.numberOfFiles(), equals(4));
   });
   test('decode/encode', () {
     final a_bytes = a_txt.codeUnits;

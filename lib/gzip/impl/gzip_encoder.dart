@@ -1,16 +1,13 @@
-import '../util/input_stream.dart';
-import '../util/output_stream.dart';
-import '../zlib/deflate.dart';
+import 'dart:typed_data';
 
-class GZipEncoder {
-  static const int SIGNATURE = 0x8b1f;
-  static const int DEFLATE = 8;
-  static const int FLAG_TEXT = 0x01;
-  static const int FLAG_HCRC = 0x02;
-  static const int FLAG_EXTRA = 0x04;
-  static const int FLAG_NAME = 0x08;
-  static const int FLAG_COMMENT = 0x10;
+import '../../base/impl/output_stream.dart';
+import '../../base/interface/input_stream.dart';
+import '../../base/interface/output_stream.dart';
+import '../../zlib/deflate.dart';
+import '../interface/gzip_encoder.dart';
+import 'gzip_constants.dart';
 
+class GZipEncoderImpl implements GZipEncoder {
   // enum OperatingSystem
   static const int OS_FAT = 0;
   static const int OS_AMIGA = 1;
@@ -28,8 +25,11 @@ class GZipEncoder {
   static const int OS_ACORN_RISCOS = 13;
   static const int OS_UNKNOWN = 255;
 
-  List<int>? encode(dynamic data, {int? level, dynamic output}) {
-    final dynamic output_stream = output ?? OutputStream();
+  const GZipEncoderImpl();
+
+  @override
+  Uint8List? encode(dynamic data, {int? level, dynamic output}) {
+    final dynamic output_stream = output ?? OutputStreamImpl();
     // The GZip format has the following structure:
     // Offset   Length   Contents
     // 0      2 bytes  magic header  0x1f, 0x8b (\037 \213)
@@ -71,9 +71,9 @@ class GZipEncoder {
     //        4 bytes  crc32
     //        4 bytes  uncompressed input size modulo 2^32
     // ignore: avoid_dynamic_calls
-    output_stream.writeUint16(SIGNATURE);
+    output_stream.writeUint16(GZipConstants.SIGNATURE);
     // ignore: avoid_dynamic_calls
-    output_stream.writeByte(DEFLATE);
+    output_stream.writeByte(GZipConstants.DEFLATE);
     const flags = 0;
     final fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     const extraFlags = 0;
@@ -90,7 +90,7 @@ class GZipEncoder {
     if (data is List<int>) {
       deflate = Deflate(data, level: level, output: output_stream);
     } else {
-      deflate = Deflate.buffer(data as InputStreamBase, level: level, output: output_stream);
+      deflate = Deflate.buffer(data as InputStream, level: level, output: output_stream);
     }
     if (!(output_stream is OutputStream)) {
       deflate.finish();
@@ -99,7 +99,7 @@ class GZipEncoder {
     output_stream.writeUint32(deflate.crc32);
     // ignore: avoid_dynamic_calls
     output_stream.writeUint32(data.length);
-    if (output_stream is OutputStream) {
+    if (output_stream is OutputStreamImpl) {
       return output_stream.getBytes();
     } else {
       return null;

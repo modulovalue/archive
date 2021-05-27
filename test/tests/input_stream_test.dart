@@ -1,16 +1,16 @@
-import 'package:archive2/util/byte_order.dart';
-import 'package:archive2/util/input_stream.dart';
+import 'package:archive2/base/impl/byte_order_constants.dart';
+import 'package:archive2/base/impl/input_stream.dart';
 import 'package:test/test.dart';
 
 void main() {
   test('empty', () {
-    final input = InputStream(<int>[]);
+    final input = InputStreamImpl(<int>[]);
     expect(input.length, equals(0));
     expect(input.isEOS, equals(true));
   });
   test('readByte', () {
     const data = <int>[0xaa, 0xbb, 0xcc];
-    final input = InputStream(data);
+    final input = InputStreamImpl(data);
     expect(input.length, equals(3));
     expect(input.readByte(), equals(0xaa));
     expect(input.readByte(), equals(0xbb));
@@ -19,7 +19,7 @@ void main() {
   });
   test('peakBytes', () {
     const data = <int>[0xaa, 0xbb, 0xcc];
-    final input = InputStream(data);
+    final input = InputStreamImpl(data);
     expect(input.readByte(), equals(0xaa));
     final bytes = input.peekBytes(2);
     expect(bytes[0], equals(0xbb));
@@ -30,7 +30,7 @@ void main() {
   });
   test('skip', () {
     const data = <int>[0xaa, 0xbb, 0xcc];
-    final input = InputStream(data);
+    final input = InputStreamImpl(data);
     expect(input.length, equals(3));
     expect(input.readByte(), equals(0xaa));
     input.skip(1);
@@ -39,7 +39,7 @@ void main() {
   });
   test('subset', () {
     const data = <int>[0xaa, 0xbb, 0xcc, 0xdd, 0xee];
-    final input = InputStream(data);
+    final input = InputStreamImpl(data);
     expect(input.length, equals(5));
     expect(input.readByte(), equals(0xaa));
     final i2 = input.subset(null, 3);
@@ -53,7 +53,7 @@ void main() {
   });
   test('readString', () {
     const data = [84, 101, 115, 116, 0];
-    final input = InputStream(data);
+    final input = InputStreamImpl(data);
     var s = input.readString();
     expect(s, equals('Test'));
     expect(input.isEOS, equals(true));
@@ -65,7 +65,7 @@ void main() {
   });
   test('readBytes', () {
     const data = [84, 101, 115, 116, 0];
-    final input = InputStream(data);
+    final input = InputStreamImpl(data);
     final b = input.readBytes(3);
     expect(b.length, equals(3));
     expect(b[0], equals(84));
@@ -78,38 +78,38 @@ void main() {
   test('readUint16', () {
     const data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
     // Little endian (by default)
-    final input = InputStream(data);
+    final input = InputStreamImpl(data);
     expect(input.readUint16(), equals(0xbbaa));
     // Big endian
-    final i2 = InputStream(data, byteOrder: BIG_ENDIAN);
+    final i2 = InputStreamImpl(data, byteOrder: BIG_ENDIAN);
     expect(i2.readUint16(), equals(0xaabb));
   });
   test('readUint24', () {
     const data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
     // Little endian (by default)
-    final input = InputStream(data);
+    final input = InputStreamImpl(data);
     expect(input.readUint24(), equals(0xccbbaa));
     // Big endian
-    final i2 = InputStream(data, byteOrder: BIG_ENDIAN);
+    final i2 = InputStreamImpl(data, byteOrder: BIG_ENDIAN);
     expect(i2.readUint24(), equals(0xaabbcc));
   });
   test('readUint32', () {
     const data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee];
     // Little endian (by default)
-    final input = InputStream(data);
+    final input = InputStreamImpl(data);
     expect(input.readUint32(), equals(0xddccbbaa));
     // Big endian
-    final i2 = InputStream(data, byteOrder: BIG_ENDIAN);
+    final i2 = InputStreamImpl(data, byteOrder: BIG_ENDIAN);
     expect(i2.readUint32(), equals(0xaabbccdd));
   });
   test('readUint64', () {
     const data = [0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0xee, 0xdd];
     // Little endian (by default)
-    final input = InputStream(data);
+    final input = InputStreamImpl(data);
     // ignore: avoid_js_rounded_ints
     expect(input.readUint64(), equals(0xddeeffeeddccbbaa));
     // Big endian
-    final i2 = InputStream(data, byteOrder: BIG_ENDIAN);
+    final i2 = InputStreamImpl(data, byteOrder: BIG_ENDIAN);
     // ignore: avoid_js_rounded_ints
     expect(i2.readUint64(), equals(0xaabbccddeeffeedd));
   });

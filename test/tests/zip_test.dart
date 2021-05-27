@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:archive2/archive/archive.dart';
-import 'package:archive2/archive/archive_file.dart';
+import 'package:archive2/archive/impl/archive.dart';
+import 'package:archive2/archive/impl/file.dart';
 import 'package:archive2/io/zip_file_encoder.dart';
 import 'package:archive2/zip/zip_decoder.dart';
 import 'package:archive2/zip/zip_encoder.dart';
@@ -208,14 +208,14 @@ final zipTests = <dynamic>[
 ];
 void main() {
   test('zip empty', () async {
-    ZipDecoder().decodeBytes(ZipEncoder().encode(Archive())!);
+    ZipDecoder().decodeBytes(ZipEncoder().encode(ArchiveImpl())!);
   });
   test('zip isFile', () async {
     final file = File(p.join(testDirPath, 'res/zip/android-javadoc.zip'));
     final bytes = file.readAsBytesSync();
     final archive = ZipDecoder().decodeBytes(bytes, verify: true);
     expect(archive.numberOfFiles(), equals(102));
-    for (final file in archive.files) {
+    for (final file in archive.iterable) {
       //print('@ ${file.name} ${file.isFile} ${!file.name.endsWith('/')}');
       expect(file.isFile, equals(!file.name.endsWith('/')));
     }
@@ -228,14 +228,14 @@ void main() {
   test('file encoding zip file', () {
     const origialFileName = 'fileöäüÖÄÜß.txt';
     final bytes = const Utf8Codec().encode('test');
-    final archiveFile = ArchiveFile(origialFileName, bytes.length, bytes);
-    final archive = Archive();
+    final archiveFile = ArchiveFileImpl(origialFileName, bytes.length, bytes);
+    final archive = ArchiveImpl();
     archive.addFile(archiveFile);
     final encoder = ZipEncoder();
     final decoder = ZipDecoder();
     final encodedBytes = encoder.encode(archive)!;
     final archiveDecoded = decoder.decodeBytes(encodedBytes);
-    final decodedFile = archiveDecoded.files.first;
+    final decodedFile = archiveDecoded.first;
     expect(decodedFile.name, origialFileName);
   });
   test('zip executable', () async {
@@ -270,11 +270,11 @@ void main() {
     }
   });
   test('encode', () {
-    final archive = Archive();
+    final archive = ArchiveImpl();
     const bdata = 'hello world';
     final bytes = Uint8List.fromList(bdata.codeUnits);
     const name = 'abc.txt';
-    final afile = ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
+    final afile = ArchiveFileImpl.noCompress(name, bytes.lengthInBytes, bytes);
     archive.addFile(afile);
     final zip_data = ZipEncoder().encode(archive)!;
     File(p.join(testDirPath, 'out/uncompressed.zip'))
@@ -289,11 +289,11 @@ void main() {
     }
   });
   test('encode with timestamp', () {
-    final archive = Archive();
+    final archive = ArchiveImpl();
     const bdata = 'some file data';
     final bytes = Uint8List.fromList(bdata.codeUnits);
     const name = 'somefile.txt';
-    final afile = ArchiveFile.noCompress(name, bytes.lengthInBytes, bytes);
+    final afile = ArchiveFileImpl.noCompress(name, bytes.lengthInBytes, bytes);
     archive.addFile(afile);
     final zip_data = ZipEncoder().encode(archive, modified: DateTime.utc(2010, DateTime.january, 1))!;
     File(p.join(testDirPath, 'out/uncompressed.zip'))

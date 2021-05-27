@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 
-import '../archive/archive_file.dart';
+import '../archive/impl/file.dart';
+import '../archive/interface/file.dart';
 import '../zip/zip_encoder.dart';
 import 'input_file_stream.dart';
 import 'output_file_stream.dart';
@@ -48,7 +49,7 @@ class ZipFileEncoder {
 
   void addFile(File file, [String? filename, int? level = GZIP]) {
     final file_stream = InputFileStream.file(file);
-    final archiveFile = ArchiveFile.stream(filename ?? path.basename(file.path), file.lengthSync(), file_stream);
+    final archiveFile = ArchiveFileImpl.stream(filename ?? path.basename(file.path), file.lengthSync(), file_stream);
 
     if (level == STORE) {
       archiveFile.compress = false;

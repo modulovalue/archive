@@ -2,11 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import '../util/archive_exception.dart';
-import '../util/byte_order.dart';
-import '../util/input_stream.dart';
+import '../base/impl/byte_order_constants.dart';
+import '../base/impl/exception.dart';
+import '../base/impl/input_stream.dart';
+import '../base/interface/input_stream.dart';
 
-class InputFileStream extends InputStreamBase {
+class InputFileStream implements InputStream {
   static const int _kDefaultBufferSize = 4096;
 
   final String path;
@@ -82,11 +83,11 @@ class InputFileStream extends InputStreamBase {
   /// Read [count] bytes from an [offset] of the current read position, without
   /// moving the read position.
   @override
-  InputStream peekBytes(int count, [int offset = 0]) {
+  InputStreamImpl peekBytes(int count, [int offset = 0]) {
     final end = _bufferPosition + offset + count;
     if (end > 0 && end < _bufferSize) {
       final bytes = _buffer.sublist(_bufferPosition + offset, end);
-      return InputStream(bytes);
+      return InputStreamImpl(bytes);
     } else {
       final bytes = Uint8List(count);
       final remaining = _bufferSize - (_bufferPosition + offset);
@@ -96,7 +97,7 @@ class InputFileStream extends InputStreamBase {
       }
       _file.readIntoSync(bytes, remaining, count);
       _file.setPositionSync(_filePosition);
-      return InputStream(bytes);
+      return InputStreamImpl(bytes);
     }
   }
 
@@ -235,9 +236,9 @@ class InputFileStream extends InputStreamBase {
   }
 
   @override
-  InputStream readBytes(int length) {
+  InputStreamImpl readBytes(int length) {
     if (isEOS) {
-      return InputStream(<int>[]);
+      return InputStreamImpl(<int>[]);
     } else {
       if (_bufferPosition == _bufferSize) {
         _readBuffer();
@@ -245,7 +246,7 @@ class InputFileStream extends InputStreamBase {
       if (_remainingBufferSize >= length) {
         final bytes = _buffer.sublist(_bufferPosition, _bufferPosition + length);
         _bufferPosition += length;
-        return InputStream(bytes);
+        return InputStreamImpl(bytes);
       } else {
         final total_remaining = fileRemaining + _remainingBufferSize;
         if (length > total_remaining) {
@@ -274,7 +275,7 @@ class InputFileStream extends InputStreamBase {
             }
           }
         }
-        return InputStream(bytes);
+        return InputStreamImpl(bytes);
       }
     }
   }
@@ -296,7 +297,7 @@ class InputFileStream extends InputStreamBase {
           codes.add(c);
         }
       }
-      throw const ArchiveException('EOF reached without finding string terminator');
+      throw const ArchiveExceptionImpl('EOF reached without finding string terminator');
     } else {
       final s = readBytes(size);
       final bytes = s.toUint8List();

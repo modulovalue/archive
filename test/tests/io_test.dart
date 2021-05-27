@@ -1,14 +1,14 @@
 import 'dart:io';
 
-import 'package:archive2/gzip/gzip_decoder.dart';
-import 'package:archive2/gzip/gzip_encoder.dart';
-import 'package:archive2/io/create_archive_from_directory.dart';
+import 'package:archive2/base/impl/input_stream.dart';
+import 'package:archive2/gzip/impl/gzip_decoder.dart';
+import 'package:archive2/gzip/impl/gzip_encoder.dart';
 import 'package:archive2/io/input_file_stream.dart';
 import 'package:archive2/io/output_file_stream.dart';
 import 'package:archive2/io/tar_file_encoder.dart';
 import 'package:archive2/io/zip_file_encoder.dart';
 import 'package:archive2/tar/tar_decoder.dart';
-import 'package:archive2/util/input_stream.dart';
+import 'package:archive2/util/io_create_archive_from_dir.dart';
 import 'package:archive2/zip/zip_decoder.dart';
 import 'package:archive2/zip/zip_encoder.dart';
 import 'package:path/path.dart' as p;
@@ -61,7 +61,7 @@ void main() {
     expect(b[1], equals(c[1]));
     input.close();
     input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
-    final input2 = InputStream(File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync());
+    final input2 = InputStreamImpl(File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync());
     var same = true;
     while (!input.isEOS && same) {
       same = input.readByte() == input2.readByte();
@@ -125,7 +125,7 @@ void main() {
     final zipDecoder = ZipDecoder();
     final f = File('${testDirPath}/out/testEmpty.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
-    expect(archive.length, equals(1));
+    expect(archive.numberOfFiles(), equals(1));
   });
   test('stream tar decode', () {
     // Decode a tar from disk to memory
@@ -158,13 +158,13 @@ void main() {
   test('stream gzip encode', () {
     final input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
     final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
-    final encoder = GZipEncoder();
+    const encoder = GZipEncoderImpl();
     encoder.encode(input, output: output);
   });
   test('stream gzip decode', () {
     final input = InputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
     final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
-    GZipDecoder().decodeStream(input, output);
+    const GZipDecoderImpl().decodeStream(input, output);
   });
   test('stream tgz encode', () {
     // Encode a directory from disk to disk, no memory
@@ -174,7 +174,7 @@ void main() {
     encoder.close();
     final input = InputFileStream(p.join(testDirPath, 'out/example2.tar'));
     final output = OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
-    GZipEncoder().encode(input, output: output);
+    const GZipEncoderImpl().encode(input, output: output);
     input.close();
     File(input.path).deleteSync();
   });
@@ -188,16 +188,16 @@ void main() {
     final zipDecoder = ZipDecoder();
     final f = File('${testDirPath}/out/example2.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
-    expect(archive.length, equals(4));
+    expect(archive.numberOfFiles(), equals(4));
   });
   test('create_archive_from_directory', () {
     final dir = Directory('$testDirPath/res/test2');
     final archive = createArchiveFromDirectory(dir);
-    expect(archive.length, equals(2));
+    expect(archive.numberOfFiles(), equals(2));
     final encoder = ZipEncoder();
     final bytes = encoder.encode(archive)!;
     final zipDecoder = ZipDecoder();
     final archive2 = zipDecoder.decodeBytes(bytes, verify: true);
-    expect(archive2.length, equals(2));
+    expect(archive2.numberOfFiles(), equals(2));
   });
 }

@@ -1,13 +1,21 @@
-import '../util/input_stream.dart';
+import '../../base/interface/input_stream.dart';
+import '../interface/bz2_bit_reader.dart';
 
-class Bz2BitReader {
-  InputStreamBase input;
+class Bz2BitReaderImpl implements Bz2BitReader {
+  static const List<int> _BIT_MASK = [0, 1, 3, 7, 15, 31, 63, 127, 255];
 
-  Bz2BitReader(this.input);
+  @override
+  InputStream input;
+  int _bitBuffer = 0;
+  int _bitPos = 0;
 
+  Bz2BitReaderImpl(this.input);
+
+  @override
   int readByte() => readBits(8);
 
   /// Read a number of bits from the input stream.
+  @override
   int readBits(int numBits) {
     if (numBits == 0) {
       return 0;
@@ -35,9 +43,4 @@ class Bz2BitReader {
       return value;
     }
   }
-
-  int _bitBuffer = 0;
-  int _bitPos = 0;
-
-  static const List<int> _BIT_MASK = [0, 1, 3, 7, 15, 31, 63, 127, 255];
 }

@@ -1,22 +1,26 @@
 import 'dart:typed_data';
 
-import '../archive/archive.dart';
-import '../archive/archive_file.dart';
-import '../util/output_stream.dart';
+import '../archive/interface/archive.dart';
+import '../archive/interface/file.dart';
+import '../base/impl/output_stream.dart';
 import 'tar_file.dart';
 
 /// Encode an [Archive] object into a tar formatted buffer.
 class TarEncoder {
+  dynamic _output_stream;
+
+  TarEncoder();
+
   List<int> encode(Archive archive) {
-    final output_stream = OutputStream();
+    final output_stream = OutputStreamImpl();
     start(output_stream);
-    archive.files.forEach(add);
+    archive.iterable.forEach(add);
     finish();
     return output_stream.getBytes();
   }
 
   void start([dynamic output_stream]) {
-    _output_stream = output_stream ?? OutputStream();
+    _output_stream = output_stream ?? OutputStreamImpl();
   }
 
   void add(ArchiveFile file) {
@@ -53,6 +57,4 @@ class TarEncoder {
     _output_stream.writeBytes(eof);
     _output_stream = null;
   }
-
-  dynamic _output_stream;
 }

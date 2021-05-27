@@ -1,11 +1,15 @@
-import '../archive/archive.dart';
-import '../archive/archive_file.dart';
-import '../util/input_stream.dart';
+import '../archive/impl/archive.dart';
+import '../archive/impl/file.dart';
+import '../archive/interface/archive.dart';
+import '../base/impl/input_stream.dart';
+import '../base/interface/input_stream.dart';
 import 'tar_file.dart';
 
 /// Decode a tar formatted buffer into an [Archive] object.
 class TarDecoder {
   List<TarFile> files = [];
+
+  TarDecoder();
 
   Archive decodeBytes(
     List<int> data, {
@@ -13,17 +17,17 @@ class TarDecoder {
     bool storeData = true,
   }) =>
       decodeBuffer(
-        InputStream(data),
+        InputStreamImpl(data),
         verify: verify,
         storeData: storeData,
       );
 
   Archive decodeBuffer(
-    InputStreamBase input, {
+    InputStream input, {
     bool verify = false,
     bool storeData = true,
   }) {
-    final archive = Archive();
+    final archive = ArchiveImpl();
     files.clear();
     String? nextName;
     // TarFile paxHeader = null;
@@ -49,7 +53,7 @@ class TarDecoder {
           //paxHeader = tf;
         } else {
           files.add(tf);
-          final file = ArchiveFile(nextName ?? tf.filename, tf.fileSize, tf.rawContent);
+          final file = ArchiveFileImpl(nextName ?? tf.filename, tf.fileSize, tf.rawContent);
           file.mode = tf.mode;
           file.ownerId = tf.ownerId;
           file.groupId = tf.groupId;

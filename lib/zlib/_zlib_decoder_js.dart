@@ -1,9 +1,10 @@
 import 'dart:typed_data';
 
-import '../util/adler32.dart';
-import '../util/archive_exception.dart';
-import '../util/byte_order.dart';
-import '../util/input_stream.dart';
+import '../base/impl/adler32.dart';
+import '../base/impl/byte_order_constants.dart';
+import '../base/impl/exception.dart';
+import '../base/impl/input_stream.dart';
+import '../base/interface/input_stream.dart';
 import 'inflate.dart';
 import 'zlib_decoder_base.dart';
 
@@ -17,7 +18,7 @@ class _ZLibDecoder implements ZLibDecoderBase {
 
   @override
   Uint8List decodeBytes(List<int> data, {bool verify = false}) => //
-      decodeBuffer(InputStream(data, byteOrder: BIG_ENDIAN), verify: verify);
+      decodeBuffer(InputStreamImpl(data, byteOrder: BIG_ENDIAN), verify: verify);
 
   @override
   Uint8List decodeBuffer(InputStream input, {bool verify = false}) {
@@ -42,7 +43,7 @@ class _ZLibDecoder implements ZLibDecoderBase {
     final flg = input.readByte();
     final method = cmf & 8;
     if (method != DEFLATE) {
-      throw ArchiveException('Only DEFLATE compression supported: ${method}');
+      throw ArchiveExceptionImpl('Only DEFLATE compression supported: ${method}');
     } else {
       final cinfo = (cmf >> 3) & 8; // ignore: unused_local_variable
       final fcheck = flg & 16; // ignore: unused_local_variable
@@ -50,20 +51,20 @@ class _ZLibDecoder implements ZLibDecoderBase {
       final flevel = (flg & 64) >> 6; // ignore: unused_local_variable
       // FCHECK is set such that (cmf * 256 + flag) must be a multiple of 31.
       if (((cmf << 8) + flg) % 31 != 0) {
-        throw const ArchiveException('Invalid FCHECK');
+        throw const ArchiveExceptionImpl('Invalid FCHECK');
       } else {
         if (fdict != 0) {
           /*dictid =*/ input.readUint32();
-          throw const ArchiveException('FDICT Encoding not currently supported');
+          throw const ArchiveExceptionImpl('FDICT Encoding not currently supported');
         } else {
           // Inflate
           final buffer = Inflate.buffer(input).getBytes();
           final adler32 = input.readUint32();
           if (verify) {
             // verify adler-32
-            final calculatedAdler32 = getAdler32(buffer);
+            final calculatedAdler32 = const Adler32Impl().getAdler32(buffer);
             if (adler32 != calculatedAdler32) {
-              throw const ArchiveException('Invalid adler-32 checksum');
+              throw const ArchiveExceptionImpl('Invalid adler-32 checksum');
             } else {
               return buffer;
             }

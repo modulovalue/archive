@@ -1,17 +1,21 @@
 import 'dart:typed_data';
 
-import 'archive_exception.dart';
-import 'byte_order.dart';
+import '../interface/mem_ptr.dart';
+import 'byte_order_constants.dart';
+import 'exception.dart';
 
 /// A helper class to work with List and TypedData in a way similar to pointers
 /// in C.
-class MemPtr {
+class MemPtrImpl implements MemPtr {
+  @override
   List<int> buffer;
+  @override
   int offset;
-  int _length;
+  @override
   int byteOrder;
+  int _length;
 
-  MemPtr(
+  MemPtrImpl(
     this.buffer, [
     this.offset = 0,
     this._length = -1,
@@ -22,7 +26,7 @@ class MemPtr {
     }
   }
 
-  MemPtr.from(MemPtr other, [this.offset = 0, this._length = -1])
+  MemPtrImpl.from(MemPtr other, [this.offset = 0, this._length = -1])
       : buffer = other.buffer,
         byteOrder = other.byteOrder {
     offset += other.offset;
@@ -34,21 +38,19 @@ class MemPtr {
     }
   }
 
-  /// Are we at the end of the buffer?
+  @override
   bool get isEOS => offset >= _length;
 
-  /// Get a byte in the buffer relative to the current read position.
+  @override
   int operator [](int index) => buffer[offset + index];
 
-  /// Set a byte in the buffer relative to the current read position.
+  @override
   void operator []=(int index, int value) => buffer[offset + index] = value;
 
-  /// The number of bytes remaining in the buffer.
+  @override
   int get length => _length - offset;
 
-  /// Copy data from [other] to this buffer, at [start] offset from the
-  /// current read position, and [length] number of bytes.  [offset] is
-  /// the offset in [other] to start reading.
+  @override
   void memcpy(int start, int length, dynamic other, [int offset = 0]) {
     if (other is MemPtr) {
       buffer.setRange(this.offset + start, this.offset + start + length, other.buffer, other.offset + offset);
@@ -57,16 +59,15 @@ class MemPtr {
     }
   }
 
-  /// Set a range of bytes in this buffer to [value], at [start] offset from the
-  /// current read position, and [length] number of bytes.
+  @override
   void memset(int start, int length, int value) {
     buffer.fillRange(offset + start, offset + start + length, value);
   }
 
-  /// Read a single byte.
+  @override
   int readByte() => buffer[offset++];
 
-  /// Read [count] bytes from the buffer.
+  @override
   List<int> readBytes(int count) {
     if (buffer is Uint8List) {
       final b = buffer as Uint8List;
@@ -80,8 +81,7 @@ class MemPtr {
     }
   }
 
-  /// Read a null-terminated string, or if [len] is provided, that number of
-  /// bytes returned as a string.
+  @override
   String readString([int? len]) {
     if (len == null) {
       final codes = <int>[];
@@ -92,13 +92,13 @@ class MemPtr {
         }
         codes.add(c);
       }
-      throw const ArchiveException('EOF reached without finding string terminator');
+      throw const ArchiveExceptionImpl('EOF reached without finding string terminator');
     } else {
       return String.fromCharCodes(readBytes(len));
     }
   }
 
-  /// Read a 16-bit word from the stream.
+  @override
   int readUint16() {
     final b1 = buffer[offset++] & 0xff;
     final b2 = buffer[offset++] & 0xff;
@@ -109,7 +109,7 @@ class MemPtr {
     }
   }
 
-  /// Read a 24-bit word from the stream.
+  @override
   int readUint24() {
     final b1 = buffer[offset++] & 0xff;
     final b2 = buffer[offset++] & 0xff;
@@ -121,7 +121,7 @@ class MemPtr {
     }
   }
 
-  /// Read a 32-bit word from the stream.
+  @override
   int readUint32() {
     final b1 = buffer[offset++] & 0xff;
     final b2 = buffer[offset++] & 0xff;
@@ -134,7 +134,7 @@ class MemPtr {
     }
   }
 
-  /// This assumes buffer is a Typed
+  @override
   Uint8List? toUint8List([int offset = 0]) {
     if (buffer is TypedData) {
       final b = buffer as TypedData;
@@ -144,7 +144,7 @@ class MemPtr {
     }
   }
 
-  /// This assumes buffer is a Typed
+  @override
   Uint32List? toUint32List([int offset = 0]) {
     if (buffer is TypedData) {
       final b = buffer as TypedData;

@@ -1,28 +1,30 @@
 import 'dart:typed_data';
 
-import '../util/archive_exception.dart';
-import '../util/input_stream.dart';
-import '../util/output_stream.dart';
+import '../base/impl/exception.dart';
+import '../base/impl/input_stream.dart';
+import '../base/impl/output_stream.dart';
+import '../base/interface/input_stream.dart';
+import '../base/interface/output_stream.dart';
 import 'huffman_table.dart';
 
 class Inflate {
-  late InputStreamBase input;
+  late InputStream input;
   bool inputSet = false;
   dynamic output;
 
   Inflate(List<int> bytes, [int? uncompressedSize])
-      : input = InputStream(bytes),
-        output = OutputStream(size: uncompressedSize) {
+      : input = InputStreamImpl(bytes),
+        output = OutputStreamImpl(size: uncompressedSize) {
     inputSet = true;
     _inflate();
   }
 
-  Inflate.buffer(this.input, [int? uncompressedSize]) : output = OutputStream(size: uncompressedSize) {
+  Inflate.buffer(this.input, [int? uncompressedSize]) : output = OutputStreamImpl(size: uncompressedSize) {
     inputSet = true;
     _inflate();
   }
 
-  Inflate.stream([InputStreamBase? input, dynamic output_stream]) : output = output_stream ?? OutputStream() {
+  Inflate.stream([InputStream? input, dynamic output_stream]) : output = output_stream ?? OutputStreamImpl() {
     if (input != null) {
       this.input = input;
       inputSet = true;
@@ -31,17 +33,17 @@ class Inflate {
   }
 
   void streamInput(List<int> bytes) {
-    if (inputSet && input is InputStream) {
-      final i = input as InputStream;
+    if (inputSet && input is InputStreamImpl) {
+      final i = input as InputStreamImpl;
       i.offset = _blockPos;
       final inputLen = input.length;
       final newLen = inputLen + bytes.length;
       final newBytes = Uint8List(newLen);
       newBytes.setRange(0, inputLen, i.buffer, i.offset);
       newBytes.setRange(inputLen, newLen, bytes, 0);
-      input = InputStream(newBytes);
+      input = InputStreamImpl(newBytes);
     } else {
-      input = InputStream(bytes);
+      input = InputStreamImpl(bytes);
     }
     inputSet = true;
   }
@@ -49,7 +51,7 @@ class Inflate {
   List<int>? inflateNext() {
     _bitBuffer = 0;
     _bitBufferLen = 0;
-    if (output is OutputStream) {
+    if (output is OutputStreamImpl) {
       // ignore: avoid_dynamic_calls
       output.clear();
     }
@@ -57,14 +59,14 @@ class Inflate {
       return null;
     }
     try {
-      if (input is InputStream) {
-        final i = input as InputStream;
+      if (input is InputStreamImpl) {
+        final i = input as InputStreamImpl;
         _blockPos = i.offset;
       }
       _parseBlock();
       // If it didn't finish reading the block, it will have thrown an exception
       _blockPos = 0;
-    // ignore: avoid_catches_without_on_clauses
+      // ignore: avoid_catches_without_on_clauses
     } catch (e) {
       return null;
     }
@@ -118,8 +120,8 @@ class Inflate {
           _parseDynamicHuffmanBlock();
           break;
         default:
-        // reserved or other
-          throw ArchiveException('unknown BTYPE: $btype');
+          // reserved or other
+          throw ArchiveExceptionImpl('unknown BTYPE: $btype');
       }
       // Continue while not the final block
       return !bfinal;
@@ -134,7 +136,7 @@ class Inflate {
       // not enough buffer
       while (_bitBufferLen < length) {
         if (input.isEOS) {
-          throw const ArchiveException('input buffer is broken');
+          throw const ArchiveExceptionImpl('input buffer is broken');
         }
         // input byte
         final octet = input.readByte();
@@ -179,11 +181,11 @@ class Inflate {
     final nlen = _readBits(16) ^ 0xffff;
     // Make sure the block size checksum is valid.
     if (len != 0 && len != nlen) {
-      throw const ArchiveException('Invalid uncompressed block header');
+      throw const ArchiveExceptionImpl('Invalid uncompressed block header');
     }
     // check size
     if (len > input.length) {
-      throw const ArchiveException('Input buffer is broken');
+      throw const ArchiveExceptionImpl('Input buffer is broken');
     }
     // ignore: avoid_dynamic_calls
     output.writeInputStream(input.readBytes(len));
@@ -219,7 +221,7 @@ class Inflate {
     for (;;) {
       final code = _readCodeByTable(litlen);
       if (code < 0 || code > 285) {
-        throw ArchiveException('Invalid Huffman Code $code');
+        throw ArchiveExceptionImpl('Invalid Huffman Code $code');
       }
       // 256 - End of Huffman block
       if (code == 256) {
@@ -253,7 +255,7 @@ class Inflate {
           output.writeBytes(output.subset(-distance, codeLength - distance));
         }
       } else {
-        throw const ArchiveException('Illegal unused distance symbol');
+        throw const ArchiveExceptionImpl('Illegal unused distance symbol');
       }
     }
     while (_bitBufferLen >= 8) {
@@ -296,7 +298,7 @@ class Inflate {
         default: // [0, 15]
           // Literal bitlength for this code.
           if (code < 0 || code > 15) {
-            throw ArchiveException('Invalid Huffman Code: $code');
+            throw ArchiveExceptionImpl('Invalid Huffman Code: $code');
           } else {
             lengths[i++] = code;
             prev = code;

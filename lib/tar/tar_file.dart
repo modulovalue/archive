@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 
-import '../util/archive_exception.dart';
-import '../util/input_stream.dart';
-import '../util/output_stream.dart';
+import '../base/impl/exception.dart';
+import '../base/impl/input_stream.dart';
+import '../base/impl/output_stream.dart';
+import '../base/interface/input_stream.dart';
+import '../base/interface/output_stream.dart';
 
 /*  File Header (512 bytes)
  *  Offst Size Field
@@ -68,7 +70,7 @@ class TarFile {
 
   TarFile();
 
-  TarFile.read(InputStreamBase input, {bool storeData = true}) {
+  TarFile.read(InputStream input, {bool storeData = true}) {
     final header = input.readBytes(512);
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
@@ -133,7 +135,7 @@ class TarFile {
     // The name, linkname, magic, uname, and gname are null-terminated
     // character strings. All other fields are zero-filled octal numbers in
     // ASCII. Each numeric field of width w contains w minus 1 digits, and a null.
-    final header = OutputStream();
+    final header = OutputStreamImpl();
     _writeString(header, filename, 100);
     _writeInt(header, mode, 8);
     _writeInt(header, ownerId, 8);
@@ -185,7 +187,7 @@ class TarFile {
     }
   }
 
-  int _parseInt(InputStream input, int numBytes) {
+  int _parseInt(InputStreamImpl input, int numBytes) {
     final s = _parseString(input, numBytes);
     if (s.isEmpty) {
       return 0;
@@ -193,7 +195,7 @@ class TarFile {
     var x = 0;
     try {
       x = int.parse(s, radix: 8);
-    // ignore: avoid_catches_without_on_clauses
+      // ignore: avoid_catches_without_on_clauses
     } catch (e) {
       // Catch to fix a crash with bad group_id and owner_id values.
       // This occurs for POSIX archives, where some attributes like uid and
@@ -202,7 +204,7 @@ class TarFile {
     return x;
   }
 
-  String _parseString(InputStream input, int numBytes) {
+  String _parseString(InputStreamImpl input, int numBytes) {
     try {
       final codes = input.readBytes(numBytes);
       final r = codes.indexOf(0);
@@ -210,9 +212,9 @@ class TarFile {
       final b = s.toUint8List();
       final str = String.fromCharCodes(b).trim();
       return str;
-    // ignore: avoid_catches_without_on_clauses
+      // ignore: avoid_catches_without_on_clauses
     } catch (e) {
-      throw const ArchiveException('Invalid Archive');
+      throw const ArchiveExceptionImpl('Invalid Archive');
     }
   }
 
@@ -223,7 +225,7 @@ class TarFile {
     output.writeBytes(codes);
   }
 
-  void _writeInt(OutputStream output, int value, int numBytes) {
+  void _writeInt(OutputStreamImpl output, int value, int numBytes) {
     var s = value.toRadixString(8);
     while (s.length < numBytes - 1) {
       s = '0' + s;

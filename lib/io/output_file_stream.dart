@@ -1,12 +1,13 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import '../util/byte_order.dart';
-import '../util/input_stream.dart';
-import '../util/output_stream.dart';
+import '../base/impl/byte_order_constants.dart';
+import '../base/impl/input_stream.dart';
+import '../base/interface/input_stream.dart';
+import '../base/interface/output_stream.dart';
 import 'input_file_stream.dart';
 
-class OutputFileStream extends OutputStreamBase {
+class OutputFileStream implements OutputStream {
   String path;
   final int byteOrder;
   int _length;
@@ -48,8 +49,8 @@ class OutputFileStream extends OutputStreamBase {
   }
 
   @override
-  void writeInputStream(InputStreamBase stream) {
-    if (stream is InputStream) {
+  void writeInputStream(InputStream stream) {
+    if (stream is InputStreamImpl) {
       _fp.writeFromSync(stream.buffer, stream.offset, stream.length);
       _length += stream.length;
     } else {
