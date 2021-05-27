@@ -1,11 +1,12 @@
 import 'dart:typed_data';
 
+import '../../archive/impl/constants.dart';
 import '../../base/impl/crc32.dart';
 import '../../base/impl/exception.dart';
 import '../../base/impl/input_stream.dart';
 import '../../base/interface/input_stream.dart';
 import '../../base/interface/output_stream.dart';
-import '../../zlib/inflate.dart';
+import '../../zlib/impl/inflate.dart';
 import '../interface/gzip_decoder.dart';
 import 'gzip_constants.dart';
 
@@ -23,7 +24,7 @@ class GZipDecoderImpl implements GZipDecoder {
   @override
   void decodeStream(InputStream input, OutputStream output) {
     _readHeader(input);
-    Inflate.stream(input, output);
+    InflateImpl.stream(input, output);
   }
 
   @override
@@ -33,7 +34,7 @@ class GZipDecoderImpl implements GZipDecoder {
   }) {
     _readHeader(input);
     // Inflate
-    final buffer = Inflate.buffer(input).getBytes();
+    final buffer = InflateImpl.buffer(input).getBytes();
     if (verify) {
       final crc = input.readUint32();
       final computedCrc = const Crc32Impl().getCrc32(buffer);
@@ -94,7 +95,7 @@ class GZipDecoderImpl implements GZipDecoder {
       throw const ArchiveExceptionImpl('Invalid GZip Signature');
     }
     final compressionMethod = input.readByte();
-    if (compressionMethod != GZipConstants.DEFLATE) {
+    if (compressionMethod != ARCHIVE_DEFLATE) {
       throw const ArchiveExceptionImpl('Invalid GZip Compression Methos');
     }
     final flags = input.readByte();

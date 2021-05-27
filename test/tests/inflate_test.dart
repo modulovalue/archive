@@ -1,8 +1,8 @@
 import 'dart:typed_data';
 
-import 'package:archive2/zlib/deflate.dart';
-import 'package:archive2/zlib/inflate.dart';
-import 'package:archive2/zlib/zlib_decoder.dart';
+import 'package:archive2/zlib/impl/dart_zlib_decoder.dart';
+import 'package:archive2/zlib/impl/deflate.dart';
+import 'package:archive2/zlib/impl/inflate.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -12,13 +12,13 @@ void main() {
   }
   test('stream/NO_COMPRESSION', () {
     // compress the buffer (assumption: deflate works correctly).
-    final deflated = Deflate(buffer, level: Deflate.NO_COMPRESSION).getBytes();
+    final deflated = DeflateImpl(buffer, level: DeflateImpl.NO_COMPRESSION).getBytes();
     // re-cast the deflated bytes as a Uint8List (which is it's native type).
     // Do this so we can use use Uint8List.view to section off chunks of the
     // data to test streamed inflation.
     final deflatedBytes = deflated as Uint8List;
     // Create a stream inflator.
-    final inflate = Inflate.stream();
+    final inflate = InflateImpl.stream();
     var bi = 0;
     // The section of the input buffer we're currently streaming.
     var streamOffset = 0;
@@ -43,7 +43,7 @@ void main() {
     }
   });
   test('git inflate block', () {
-    final output = const ZLibDecoder().decodeBytes(gitInflateInput);
+    final output = const ZLibDecoderDartImpl().decodeBytes(gitInflateInput);
     expect(output, equals(gitExpectedOutput));
   });
 }

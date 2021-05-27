@@ -3,14 +3,14 @@ import 'dart:io';
 import 'package:archive2/base/impl/input_stream.dart';
 import 'package:archive2/gzip/impl/gzip_decoder.dart';
 import 'package:archive2/gzip/impl/gzip_encoder.dart';
-import 'package:archive2/io/input_file_stream.dart';
-import 'package:archive2/io/output_file_stream.dart';
-import 'package:archive2/io/tar_file_encoder.dart';
-import 'package:archive2/io/zip_file_encoder.dart';
-import 'package:archive2/tar/tar_decoder.dart';
+import 'package:archive2/io/impl/input_file_stream.dart';
+import 'package:archive2/io/impl/output_file_stream.dart';
+import 'package:archive2/io/impl/tar_file_encoder.dart';
+import 'package:archive2/io/impl/zip_file_encoder.dart';
+import 'package:archive2/tar/impl/tar_decoder.dart';
 import 'package:archive2/util/io_create_archive_from_dir.dart';
-import 'package:archive2/zip/zip_decoder.dart';
-import 'package:archive2/zip/zip_encoder.dart';
+import 'package:archive2/zip/impl/decoder.dart';
+import 'package:archive2/zip/impl/encoder.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -29,7 +29,7 @@ void main() {
     expect(b1, equals(c1));
     expect(b2, equals(c2));
     // Test rewind across buffer boundary.
-    var input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    var input = InputFileStreamImpl(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (var i = 0; i < 9; ++i) {
       input.readByte();
     }
@@ -41,14 +41,14 @@ void main() {
     expect(b1, equals(c1));
     expect(b2, equals(c2));
     // Test if peekBytes works across a buffer boundary.
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = InputFileStreamImpl(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (var i = 0; i < 9; ++i) {
       input.readByte();
     }
     b1 = input.readByte();
     b2 = input.readByte();
     input.close();
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = InputFileStreamImpl(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (var i = 0; i < 9; ++i) {
       input.readByte();
     }
@@ -60,7 +60,7 @@ void main() {
     expect(b[0], equals(c[0]));
     expect(b[1], equals(c[1]));
     input.close();
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = InputFileStreamImpl(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     final input2 = InputStreamImpl(File(p.join(testDirPath, 'res/cat.jpg')).readAsBytesSync());
     var same = true;
     while (!input.isEOS && same) {
@@ -69,13 +69,13 @@ void main() {
     expect(same, equals(true));
     expect(input.isEOS, equals(input2.isEOS));
     // Test skip across buffer boundary
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = InputFileStreamImpl(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (var i = 0; i < 11; ++i) {
       input.readByte();
     }
     b1 = input.readByte();
     input.close();
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = InputFileStreamImpl(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (var i = 0; i < 9; ++i) {
       input.readByte();
     }
@@ -84,13 +84,13 @@ void main() {
     expect(b1, equals(c1));
     input.close();
     // Test skip to end of buffer
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = InputFileStreamImpl(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (var i = 0; i < 10; ++i) {
       input.readByte();
     }
     b1 = input.readByte();
     input.close();
-    input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
+    input = InputFileStreamImpl(p.join(testDirPath, 'res/cat.jpg'), bufferSize: 10);
     for (var i = 0; i < 9; ++i) {
       input.readByte();
     }
@@ -100,8 +100,8 @@ void main() {
     input.close();
   });
   test('InputFileStream/OutputFileStream', () {
-    final input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
-    final output = OutputFileStream(p.join(testDirPath, 'out/cat2.jpg'));
+    final input = InputFileStreamImpl(p.join(testDirPath, 'res/cat.jpg'));
+    final output = OutputFileStreamImpl(p.join(testDirPath, 'out/cat2.jpg'));
     while (!input.isEOS) {
       final bytes = input.readBytes(50);
       output.writeInputStream(bytes);
@@ -118,74 +118,73 @@ void main() {
     expect(same, equals(true));
   });
   test('empty file', () {
-    final encoder = ZipFileEncoder();
+    final encoder = ZipFileEncoderImpl();
     encoder.create('$testDirPath/out/testEmpty.zip');
     encoder.addFile(File('$testDirPath/res/emptyfile.txt'));
     encoder.close();
-    final zipDecoder = ZipDecoder();
+    const zipDecoder = ZipDecoderImpl();
     final f = File('${testDirPath}/out/testEmpty.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
     expect(archive.numberOfFiles(), equals(1));
   });
   test('stream tar decode', () {
     // Decode a tar from disk to memory
-    final stream = InputFileStream(p.join(testDirPath, 'res/test2.tar'));
-    final tarArchive = TarDecoder();
-    tarArchive.decodeBuffer(stream);
-    for (final file in tarArchive.files) {
-      if (!file.isFile) {
-        continue;
-      }
-      final filename = file.filename;
-      try {
-        final f = File('${testDirPath}/out/${filename}');
-        f.parent.createSync(recursive: true);
-        f.writeAsBytesSync(file.content as List<int>);
-        // ignore: avoid_catches_without_on_clauses
-      } catch (e) {
-        print(e);
+    final stream = InputFileStreamImpl(p.join(testDirPath, 'res/test2.tar'));
+    const tarArchive = TarDecoderImpl();
+    final decoded = tarArchive.decodeBuffer(stream);
+    for (final file in decoded.iterable) {
+      if (file.isFile) {
+        final filename = file.tarFile.filename;
+        try {
+          final f = File('${testDirPath}/out/${filename}');
+          f.parent.createSync(recursive: true);
+          f.writeAsBytesSync(file.content as List<int>);
+          // ignore: avoid_catches_without_on_clauses
+        } catch (e) {
+          print(e);
+        }
       }
     }
-    expect(tarArchive.files.length, equals(4));
+    expect(decoded.iterable.length, equals(4));
   });
   test('stream tar encode', () {
     // Encode a directory from disk to disk, no memory
-    final encoder = TarFileEncoder();
+    final encoder = TarFileEncoderImpl();
     encoder.open('$testDirPath/out/test3.tar');
     encoder.addDirectory(Directory('$testDirPath/res/test2'));
     encoder.close();
   });
   test('stream gzip encode', () {
-    final input = InputFileStream(p.join(testDirPath, 'res/cat.jpg'));
-    final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
+    final input = InputFileStreamImpl(p.join(testDirPath, 'res/cat.jpg'));
+    final output = OutputFileStreamImpl(p.join(testDirPath, 'out/cat.jpg.gz'));
     const encoder = GZipEncoderImpl();
     encoder.encode(input, output: output);
   });
   test('stream gzip decode', () {
-    final input = InputFileStream(p.join(testDirPath, 'out/cat.jpg.gz'));
-    final output = OutputFileStream(p.join(testDirPath, 'out/cat.jpg'));
+    final input = InputFileStreamImpl(p.join(testDirPath, 'out/cat.jpg.gz'));
+    final output = OutputFileStreamImpl(p.join(testDirPath, 'out/cat.jpg'));
     const GZipDecoderImpl().decodeStream(input, output);
   });
   test('stream tgz encode', () {
     // Encode a directory from disk to disk, no memory
-    final encoder = TarFileEncoder();
+    final encoder = TarFileEncoderImpl();
     encoder.create('$testDirPath/out/example2.tar');
     encoder.addDirectory(Directory('$testDirPath/res/test2'));
     encoder.close();
-    final input = InputFileStream(p.join(testDirPath, 'out/example2.tar'));
-    final output = OutputFileStream(p.join(testDirPath, 'out/example2.tgz'));
+    final input = InputFileStreamImpl(p.join(testDirPath, 'out/example2.tar'));
+    final output = OutputFileStreamImpl(p.join(testDirPath, 'out/example2.tgz'));
     const GZipEncoderImpl().encode(input, output: output);
     input.close();
     File(input.path).deleteSync();
   });
   test('stream zip encode', () {
-    final encoder = ZipFileEncoder();
+    final encoder = ZipFileEncoderImpl();
     encoder.create('$testDirPath/out/example2.zip');
     encoder.addDirectory(Directory('$testDirPath/res/test2'));
     encoder.addFile(File('$testDirPath/res/cat.jpg'));
     encoder.addFile(File('$testDirPath/res/tarurls.txt'));
     encoder.close();
-    final zipDecoder = ZipDecoder();
+    const zipDecoder = ZipDecoderImpl();
     final f = File('${testDirPath}/out/example2.zip');
     final archive = zipDecoder.decodeBytes(f.readAsBytesSync(), verify: true);
     expect(archive.numberOfFiles(), equals(4));
@@ -194,9 +193,9 @@ void main() {
     final dir = Directory('$testDirPath/res/test2');
     final archive = createArchiveFromDirectory(dir);
     expect(archive.numberOfFiles(), equals(2));
-    final encoder = ZipEncoder();
+    const encoder = ZipEncoderImpl();
     final bytes = encoder.encode(archive)!;
-    final zipDecoder = ZipDecoder();
+    const zipDecoder = ZipDecoderImpl();
     final archive2 = zipDecoder.decodeBytes(bytes, verify: true);
     expect(archive2.numberOfFiles(), equals(2));
   });

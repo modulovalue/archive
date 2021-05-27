@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:archive2/gzip/impl/gzip_decoder.dart';
-import 'package:archive2/io/input_file_stream.dart';
-import 'package:archive2/io/output_file_stream.dart';
+import 'package:archive2/io/impl/input_file_stream.dart';
+import 'package:archive2/io/impl/output_file_stream.dart';
 import 'package:archive2/tar/impl/command.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -22,8 +22,8 @@ void main() {
       {
         final temp_dir = Directory.systemTemp.createTempSync('dart_archive');
         final tar_path = '${temp_dir.path}${Platform.pathSeparator}temp.tar';
-        final input = InputFileStream(inputPath);
-        final output = OutputFileStream(tar_path);
+        final input = InputFileStreamImpl(inputPath);
+        final output = OutputFileStreamImpl(tar_path);
         const GZipDecoderImpl().decodeStream(input, output);
         input.close();
         output.close();

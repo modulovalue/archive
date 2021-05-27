@@ -1,12 +1,13 @@
 import 'dart:io';
 
+import '../../archive/impl/constants.dart';
 import '../../bzip2/impl/bzip2_decoder.dart';
 import '../../gzip/impl/gzip_decoder.dart';
-import '../../io/input_file_stream.dart';
-import '../../io/output_file_stream.dart';
-import '../../io/tar_file_encoder.dart';
+import '../../io/impl/input_file_stream.dart';
+import '../../io/impl/output_file_stream.dart';
+import '../../io/impl/tar_file_encoder.dart';
 import '../interface/command.dart';
-import '../tar_decoder.dart';
+import 'tar_decoder.dart';
 
 class TarCommandImpl implements TarCommand {
   const TarCommandImpl();
@@ -55,12 +56,11 @@ class TarCommandImpl implements TarCommand {
     } else if (path.endsWith('tar.bz2') || path.endsWith('tbz')) {
       data = BZip2DecoderImpl().decodeBytes(data);
     }
-    final tarArchive = TarDecoder();
-    // Tell the decoder not to store the actual file data since we don't need
-    // it.
-    tarArchive.decodeBytes(data, storeData: false);
-    print('${tarArchive.files.length} file(s)');
-    tarArchive.files.forEach((f) => print('  ${f}'));
+    const tarArchive = TarDecoderImpl();
+    // Tell the decoder not to store the actual file data since we don't need it.
+    final decoded = tarArchive.decodeBytes(data, storeData: false);
+    print(decoded.iterable.length.toString() + ' file(s)');
+    decoded.iterable.forEach((f) => print('  ${f.tarFile}'));
   }
 
   /// Extract the entries in the given tar file to a directory.
@@ -71,8 +71,8 @@ class TarCommandImpl implements TarCommand {
     if (inputPath.endsWith('tar.gz') || inputPath.endsWith('tgz')) {
       temp_dir = Directory.systemTemp.createTempSync('dart_archive');
       tar_path = '${temp_dir.path}${Platform.pathSeparator}temp.tar';
-      final input = InputFileStream(inputPath);
-      final output = OutputFileStream(tar_path);
+      final input = InputFileStreamImpl(inputPath);
+      final output = OutputFileStreamImpl(tar_path);
       const GZipDecoderImpl().decodeStream(input, output);
       input.close();
       output.close();
@@ -81,14 +81,14 @@ class TarCommandImpl implements TarCommand {
     if (!outDir.existsSync()) {
       outDir.createSync(recursive: true);
     }
-    final input = InputFileStream(tar_path);
-    final tarArchive = TarDecoder()..decodeBuffer(input);
-    for (final file in tarArchive.files) {
+    final input = InputFileStreamImpl(tar_path);
+    final decoded = const TarDecoderImpl().decodeBuffer(input);
+    for (final file in decoded.iterable) {
       if (file.isFile) {
-        final f = File('${outputPath}${Platform.pathSeparator}${file.filename}');
+        final f = File(outputPath + Platform.pathSeparator + file.tarFile.filename);
         f.parent.createSync(recursive: true);
-        f.writeAsBytesSync(file.contentBytes);
-        print('  extracted ${file.filename}');
+        f.writeAsBytesSync(file.tarFile.contentBytes);
+        print('  extracted ${file.tarFile.filename}');
       }
     }
     input.close();
@@ -133,8 +133,8 @@ class TarCommandImpl implements TarCommand {
     final dir = Directory(dirPath);
     if (!dir.existsSync()) fail('${dirPath} does not exist');
     // Encode a directory from disk to disk, no memory
-    final encoder = TarFileEncoder();
-    encoder.tarDirectory(dir, compression: TarFileEncoder.GZIP);
+    final encoder = TarFileEncoderImpl();
+    encoder.tarDirectory(dir, compression: ARCHIVE_GZIP);
   }
 
   static void fail(String message) {

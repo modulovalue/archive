@@ -1,5 +1,5 @@
-import 'package:archive2/zlib/deflate.dart';
-import 'package:archive2/zlib/inflate.dart';
+import 'package:archive2/zlib/impl/deflate.dart';
+import 'package:archive2/zlib/impl/inflate.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -8,24 +8,24 @@ void main() {
     buffer[i] = i % 256;
   }
   test('NO_COMPRESSION', () {
-    final deflated = Deflate(buffer, level: Deflate.NO_COMPRESSION).getBytes();
-    final inflated = Inflate(deflated).getBytes();
+    final deflated = DeflateImpl(buffer, level: DeflateImpl.NO_COMPRESSION).getBytes();
+    final inflated = InflateImpl(deflated).getBytes();
     expect(inflated.length, equals(buffer.length));
     for (var i = 0; i < buffer.length; ++i) {
       expect(inflated[i], equals(buffer[i]));
     }
   });
   test('BEST_SPEED', () {
-    final deflated = Deflate(buffer, level: Deflate.BEST_SPEED).getBytes();
-    final inflated = Inflate(deflated).getBytes();
+    final deflated = DeflateImpl(buffer, level: DeflateImpl.BEST_SPEED).getBytes();
+    final inflated = InflateImpl(deflated).getBytes();
     expect(inflated.length, equals(buffer.length));
     for (var i = 0; i < buffer.length; ++i) {
       expect(inflated[i], equals(buffer[i]));
     }
   });
   test('BEST_COMPRESSION', () {
-    final deflated = Deflate(buffer, level: Deflate.BEST_COMPRESSION).getBytes();
-    final inflated = Inflate(deflated).getBytes();
+    final deflated = DeflateImpl(buffer, level: DeflateImpl.BEST_COMPRESSION).getBytes();
+    final inflated = InflateImpl(deflated).getBytes();
     expect(inflated.length, equals(buffer.length));
     for (var i = 0; i < buffer.length; ++i) {
       expect(inflated[i], equals(buffer[i]));

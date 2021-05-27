@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-
 /// A helper class to work with List and TypedData
 /// in a way similar to pointers in C.
 abstract class MemPtr {
@@ -27,8 +26,9 @@ abstract class MemPtr {
   /// the offset in [other] to start reading.
   void memcpy(int start, int length, dynamic other, [int offset = 0]);
 
-  /// Set a range of bytes in this buffer to [value], at [start] offset from the
-  /// current read position, and [length] number of bytes.
+  /// Set a range of bytes in this buffer to [value],
+  /// at [start] offset from the current read position,
+  /// and [length] number of bytes.
   void memset(int start, int length, int value);
 
   /// Read a single byte.
@@ -37,8 +37,8 @@ abstract class MemPtr {
   /// Read [count] bytes from the buffer.
   List<int> readBytes(int count);
 
-  /// Read a null-terminated string, or if [len] is provided, that number of
-  /// bytes returned as a string.
+  /// Read a null-terminated string, or if [len] is provided,
+  /// that number of bytes returned as a string.
   String readString([int? len]);
 
   /// Read a 16-bit word from the stream.
@@ -50,9 +50,9 @@ abstract class MemPtr {
   /// Read a 32-bit word from the stream.
   int readUint32();
 
-  /// This assumes buffer is a Typed
+  /// This assumes buffer is a typed buffer.
   Uint8List? toUint8List([int offset = 0]);
 
-  /// This assumes buffer is a Typed
+  /// This assumes buffer is a typed buffer.
   Uint32List? toUint32List([int offset = 0]);
 }

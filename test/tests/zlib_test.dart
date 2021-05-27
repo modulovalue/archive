@@ -1,5 +1,5 @@
-import 'package:archive2/zlib/zlib_decoder.dart';
-import 'package:archive2/zlib/zlib_encoder.dart';
+import 'package:archive2/zlib/impl/dart_zlib_decoder.dart';
+import 'package:archive2/zlib/impl/io_zlib_encoder.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -8,8 +8,8 @@ void main() {
     buffer[i] = i % 256;
   }
   test('encode/decode', () {
-    final compressed = const ZLibEncoder().encode(buffer);
-    final decompressed = const ZLibDecoder().decodeBytes(compressed, verify: true);
+    final compressed = const ZLibEncoderIOImpl().encode(buffer);
+    final decompressed = const ZLibDecoderDartImpl().decodeBytes(compressed, verify: true);
     expect(decompressed.length, equals(buffer.length));
     for (var i = 0; i < buffer.length; ++i) {
       expect(decompressed[i], equals(buffer[i]));

@@ -2,25 +2,33 @@ import '../../base/interface/input_stream.dart';
 
 /// A file contained in an Archive.
 abstract class ArchiveFile {
-  abstract String name;
-
   /// The uncompressed size of the file
-  abstract int size;
-  abstract int mode;
-  abstract int ownerId;
-  abstract int groupId;
-  abstract int lastModTime;
-  abstract bool isFile;
-  abstract bool isSymbolicLink;
-  abstract String nameOfLinkedFile;
+  int get uncompressedSizeOfTheFile;
+
+  String get name;
+
+  int get mode;
+
+  int get ownerId;
+
+  int get groupId;
+
+  int get lastModTime;
+
+  bool get isFile;
+
+  bool get isSymbolicLink;
+
+  String get nameOfLinkedFile;
 
   /// The crc32 checksum of the uncompressed content.
-  abstract int? crc32;
-  abstract String? comment;
+  int? get crc32;
+
+  String? get comment;
 
   /// If false, this file will not be compressed when encoded to an archive
   /// format such as zip.
-  abstract bool compress;
+  bool get compress;
 
   int get unixPermissions;
 

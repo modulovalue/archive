@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:archive2/gzip/impl/gzip_decoder.dart';
-import 'package:archive2/tar/tar_decoder.dart';
+import 'package:archive2/tar/impl/tar_decoder.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -60,16 +60,16 @@ void extractDart(List<String> urls) {
     print('EXTRACTING $inputPath');
     final fp = File(path + '/out/' + filename);
     final data = fp.readAsBytesSync();
-    final tarArchive = TarDecoder();
-    tarArchive.decodeBytes(const GZipDecoderImpl().decodeBytes(data));
+    const tarArchive = TarDecoderImpl();
+    final decoded = tarArchive.decodeBytes(const GZipDecoderImpl().decodeBytes(data));
     print('EXTRACTING $filename');
     final outDir = Directory(outputPath);
     if (!outDir.existsSync()) {
       outDir.createSync(recursive: true);
     }
-    for (final file in tarArchive.files) {
+    for (final file in decoded.iterable) {
       if (file.isFile) {
-        final filename = file.filename;
+        final filename = file.tarFile.filename;
         try {
           final f = File('${outputPath}${Platform.pathSeparator}${filename}');
           f.parent.createSync(recursive: true);

@@ -1,7 +1,7 @@
 import 'dart:html';
 import 'dart:typed_data';
 
-import 'package:archive2/zip/zip_decoder.dart';
+import 'package:archive2/zip/impl/decoder.dart';
 
 void main() {
   // An img on the html page is used to establish the path to the images
@@ -18,7 +18,7 @@ void main() {
     if (req.status == 200) {
       // Convert the text to binary byte list.
       final bytes = Uint8List.view(req.response as ByteBuffer);
-      final archive = ZipDecoder().decodeBytes(bytes, verify: true);
+      final archive = const ZipDecoderImpl().decodeBytes(bytes, verify: true);
       print('NUMBER OF FILES ${archive.numberOfFiles()}');
     }
   });

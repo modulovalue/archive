@@ -5,7 +5,7 @@ import 'package:path/path.dart' as path;
 import '../archive/impl/archive.dart';
 import '../archive/impl/file.dart';
 import '../archive/interface/archive.dart';
-import '../io/input_file_stream.dart';
+import '../io/impl/input_file_stream.dart';
 
 Archive createArchiveFromDirectory(Directory dir, {bool includeDirName = true}) {
   final archive = ArchiveImpl();
@@ -14,9 +14,15 @@ Archive createArchiveFromDirectory(Directory dir, {bool includeDirName = true}) 
   for (final file in files) {
     if (file is File) {
       final f = file;
-      var filename = path.relative(f.path, from: dir.path);
-      filename = includeDirName ? (dir_name + '/' + filename) : filename;
-      final file_stream = InputFileStream.file(f);
+      final filename = () {
+        final _filename = path.relative(f.path, from: dir.path);
+        if (includeDirName) {
+          return dir_name + '/' + _filename;
+        } else {
+          return _filename;
+        }
+      }();
+      final file_stream = InputFileStreamImpl.file(f);
       final af = ArchiveFileImpl.stream(filename, f.lengthSync(), file_stream);
       af.lastModTime = f.lastModifiedSync().millisecondsSinceEpoch;
       af.mode = f.statSync().mode;

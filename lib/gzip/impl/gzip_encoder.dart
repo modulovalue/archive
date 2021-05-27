@@ -1,9 +1,10 @@
 import 'dart:typed_data';
 
+import '../../archive/impl/constants.dart';
 import '../../base/impl/output_stream.dart';
 import '../../base/interface/input_stream.dart';
 import '../../base/interface/output_stream.dart';
-import '../../zlib/deflate.dart';
+import '../../zlib/impl/deflate.dart';
 import '../interface/gzip_encoder.dart';
 import 'gzip_constants.dart';
 
@@ -73,7 +74,7 @@ class GZipEncoderImpl implements GZipEncoder {
     // ignore: avoid_dynamic_calls
     output_stream.writeUint16(GZipConstants.SIGNATURE);
     // ignore: avoid_dynamic_calls
-    output_stream.writeByte(GZipConstants.DEFLATE);
+    output_stream.writeByte(ARCHIVE_DEFLATE);
     const flags = 0;
     final fileModTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     const extraFlags = 0;
@@ -86,11 +87,11 @@ class GZipEncoderImpl implements GZipEncoder {
     output_stream.writeByte(extraFlags);
     // ignore: avoid_dynamic_calls
     output_stream.writeByte(osType);
-    Deflate deflate;
+    DeflateImpl deflate;
     if (data is List<int>) {
-      deflate = Deflate(data, level: level, output: output_stream);
+      deflate = DeflateImpl(data, level: level, output: output_stream);
     } else {
-      deflate = Deflate.buffer(data as InputStream, level: level, output: output_stream);
+      deflate = DeflateImpl.buffer(data as InputStream, level: level, output: output_stream);
     }
     if (!(output_stream is OutputStream)) {
       deflate.finish();

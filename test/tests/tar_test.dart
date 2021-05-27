@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:archive2/archive/impl/archive.dart';
 import 'package:archive2/archive/impl/file.dart';
 import 'package:archive2/gzip/impl/gzip_decoder.dart';
-import 'package:archive2/tar/tar_decoder.dart';
-import 'package:archive2/tar/tar_encoder.dart';
-import 'package:archive2/tar/tar_file.dart';
+import 'package:archive2/tar/impl/tar_decoder.dart';
+import 'package:archive2/tar/impl/tar_encoder.dart';
+import 'package:archive2/tar/impl/tar_file.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -139,7 +139,7 @@ final tarTests = [
         'Gid': 0,
         'Size': 14,
         'ModTime': 1365454838,
-        'Typeflag': TarFile.TYPE_NORMAL_FILE,
+        'Typeflag': TarFileImpl.TYPE_NORMAL_FILE,
         'Linkname': '',
         'Uname': 'eyefi',
         'Gname': 'eyefi',
@@ -151,11 +151,11 @@ final tarTests = [
 ];
 
 void main() {
-  final tar = TarDecoder();
-  final tarEncoder = TarEncoder();
+  const tar = TarDecoderImpl();
+  const  tarEncoder = TarEncoderImpl();
   test('tar invalid archive', () {
     try {
-      TarDecoder().decodeBytes([1, 2, 3]);
+      const TarDecoderImpl().decodeBytes([1, 2, 3]);
       assert(false, "must fail");
       // ignore: avoid_catches_without_on_clauses
     } catch (e) {
@@ -163,7 +163,7 @@ void main() {
     }
   });
   test('tar file', () {
-    TarEncoder().encode(ArchiveImpl()..addFile(ArchiveFileImpl('file.txt', 1, [100])));
+    const TarEncoderImpl().encode(ArchiveImpl()..addFile(ArchiveFileImpl('file.txt', 1, [100])));
   });
   test('long file name', () {
     final file = File(p.join(testDirPath, 'res/tar/x.tar'));
@@ -240,15 +240,15 @@ void main() {
       final file = File(p.join(testDirPath, t['file'] as String));
       final bytes = file.readAsBytesSync();
       /*Archive archive =*/
-      tar.decodeBytes(bytes, verify: true);
+      final decoded = tar.decodeBytes(bytes, verify: true);
       // ignore: avoid_dynamic_calls
-      expect(tar.files.length, equals(t['headers'].length));
-      for (var i = 0; i < tar.files.length; ++i) {
-        final file = tar.files[i];
+      expect(decoded.iterable.length, equals(t['headers'].length));
+      for (var i = 0; i < decoded.iterable.length; ++i) {
+        final file = decoded[i];
         // ignore: avoid_dynamic_calls
         final hdr = t['headers'][i] as Map<String, dynamic>;
         if (hdr.containsKey('Name')) {
-          expect(file.filename, equals(hdr['Name']));
+          expect(file.tarFile.filename, equals(hdr['Name']));
         }
         if (hdr.containsKey('Mode')) {
           expect(file.mode, equals(hdr['Mode']));
@@ -260,19 +260,19 @@ void main() {
           expect(file.groupId, equals(hdr['Gid']));
         }
         if (hdr.containsKey('Size')) {
-          expect(file.fileSize, equals(hdr['Size']));
+          expect(file.tarFile.fileSize, equals(hdr['Size']));
         }
         if (hdr.containsKey('ModTime')) {
           expect(file.lastModTime, equals(hdr['ModTime']));
         }
         if (hdr.containsKey('Typeflag')) {
-          expect(file.typeFlag, equals(hdr['Typeflag']));
+          expect(file.tarFile.typeFlag, equals(hdr['Typeflag']));
         }
         if (hdr.containsKey('Uname')) {
-          expect(file.ownerUserName, equals(hdr['Uname']));
+          expect(file.tarFile.ownerUserName, equals(hdr['Uname']));
         }
         if (hdr.containsKey('Gname')) {
-          expect(file.ownerGroupName, equals(hdr['Gname']));
+          expect(file.tarFile.ownerGroupName, equals(hdr['Gname']));
         }
       }
     });
